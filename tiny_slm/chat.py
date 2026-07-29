@@ -9,9 +9,10 @@ from typing import List, Optional, Tuple
 import torch
 import torch.nn.functional as F
 
-from tiny_slm.agent import looks_agentic, run_agent_tools
+from tiny_slm.agent import looks_agentic
 from tiny_slm.memory import LongContextMemory
 from tiny_slm.model import TinySLM
+from tiny_slm.sara import run_sara, select_skills, try_eval_math
 from tiny_slm.search import clean_search_query, needs_search, search_web
 from tiny_slm.tokenizer import TinyTokenizer
 
@@ -146,34 +147,72 @@ class TinyChat:
         force_search: bool = False,
         force_agent: bool = False,
         repetition_penalty: float = 1.18,
+        use_sara: bool = True,
     ) -> Tuple[str, Optional[str]]:
-        tool_block = ""
-        memory_block = ""
         search_digest: Optional[str] = None
-        agent_meta = None
-
-        # Retrieve only when memory has content
+        memory_block = ""
         if self.memory.chunks:
             memory_block = self.memory.retrieve(user, top_k=4, max_chars=800)
 
-        if force_agent or looks_agentic(user):
-            tool_block, agent_meta = run_agent_tools(
+        def _raw_generate(prompt_user: str) -> str:
+            prompt = self._build_prompt(prompt_user, tool_block="", memory_block="")
+            ids = self.tokenizer.encode(prompt)
+            new_ids = self._generate(
+                ids,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_k=top_k,
+                repetition_penalty=repetition_penalty,
+            )
+            text = self.tokenizer.decode(new_ids, skip_special=True).strip()
+            if "\n\n" in text:
+                text = text.split("\n\n", 1)[0].strip()
+            return text
+
+        # SARA for agentic / math / explicit force — not every short utterance
+        sara_gate = (
+            force_agent
+            or looks_agentic(user)
+            or try_eval_math(user) is not None
+            or any(
+                "plan_steps" in s or "compare_two" in s or "memory_answer" in s or "math_simple" in s
+                for s in select_skills(user)
+            )
+        )
+        if use_sara and sara_gate:
+            sara = run_sara(
                 user,
+                generate_fn=_raw_generate,
                 memory_retrieve=lambda q: self.memory.retrieve(q, top_k=4, max_chars=600),
                 auto_search=self.auto_search or force_search,
+                force_agent=force_agent or looks_agentic(user),
             )
-            # Tiny models synthesize better from a short "notes → answer" prompt
-            synth = (
-                f"Notes:\n{tool_block[:700]}\n"
-                f"Answer the user clearly in short steps if needed.\n"
-                f"User ask: {user}"
-            )
-            prompt = self._build_prompt(synth, tool_block="", memory_block=memory_block)
-        else:
-            if force_search or (self.auto_search and needs_search(user)):
-                search_digest = search_web(clean_search_query(user), max_results=3)
-                tool_block = f"[tool:search] {search_digest[:600]}"
-            prompt = self._build_prompt(user, tool_block=tool_block, memory_block=memory_block)
+            reply = sara.final or "(empty reply)"
+            header = [
+                f"[sara] skills={len(sara.skills)} revised={sara.revised} reflect={sara.reflection}"
+            ]
+            if sara.agent is not None:
+                header.append(
+                    f"[agent] plan={' - '.join(sara.agent.plan)} steps={sara.agent.steps_done}"
+                )
+            if memory_block:
+                header.append(
+                    f"[memory] {self.memory.stats()['tokens']:,}/{self.memory.max_tokens:,} tok store"
+                )
+            if sara.verified_math:
+                header.append("[verify] symbolic-math")
+            display = "\n".join(header) + f"\n\n[model]\n{reply}"
+            clean = _clean_for_history(reply)
+            self.history.append((user, clean))
+            self.memory.add_turn(user, clean)
+            return display, search_digest
+
+        # Simple chat / search path
+        tool_block = ""
+        if force_search or (self.auto_search and needs_search(user)):
+            search_digest = search_web(clean_search_query(user), max_results=3)
+            tool_block = f"[tool:search] {search_digest[:600]}"
+        prompt = self._build_prompt(user, tool_block=tool_block, memory_block=memory_block)
         ids = self.tokenizer.encode(prompt)
         new_ids = self._generate(
             ids,
@@ -190,13 +229,11 @@ class TinyChat:
 
         display = reply
         header_parts = []
-        if agent_meta is not None:
-            header_parts.append(
-                f"[agent] plan={' - '.join(agent_meta.plan)} steps={agent_meta.steps_done}"
-            )
         if memory_block:
-            header_parts.append(f"[memory] used {len(memory_block)} chars "
-                                f"({self.memory.stats()['tokens']:,}/{self.memory.max_tokens:,} tok store)")
+            header_parts.append(
+                f"[memory] used {len(memory_block)} chars "
+                f"({self.memory.stats()['tokens']:,}/{self.memory.max_tokens:,} tok store)"
+            )
         if search_digest:
             header_parts.append(f"[web]\n{search_digest}")
         if header_parts:

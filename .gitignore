@@ -12,3 +12,4 @@ Thumbs.db
 checkpoints/*.tmp
 data/*.txt
 !data/.gitkeep
+benchmarks/*.log

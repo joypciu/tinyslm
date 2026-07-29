@@ -42,7 +42,7 @@ def load_corpus(data_dir: Path, chat_repeat: int = 40) -> str:
         text = path.read_text(encoding="utf-8")
         print(f"  + {path.name}: {path.stat().st_size:,} bytes")
         name = path.name.lower()
-        if "seed" in name or "chat" in name or "instruct" in name or "agent" in name or "interactive" in name or "basic" in name:
+        if any(k in name for k in ("seed", "chat", "instruct", "agent", "interactive", "basic", "sara")):
             chat_parts.append(text)
         else:
             other_parts.append(text)

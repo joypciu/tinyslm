@@ -1,0 +1,388 @@
+{
+  "summary": {
+    "TinySLM-SARA": {
+      "mean_score": 6.4375,
+      "n": 8,
+      "mean_latency_s": 0.9691491425037384
+    },
+    "Qwen3.5-0.8B-Q6_K": {
+      "mean_score": 5.75,
+      "n": 8,
+      "mean_latency_s": 4.295781850814819
+    },
+    "Phi-4-mini-instruct-Q5_K_M": {
+      "mean_score": 6.09375,
+      "n": 8,
+      "mean_latency_s": 12.664251893758774
+    }
+  },
+  "rows": [
+    {
+      "model": "TinySLM-SARA",
+      "prompt_id": "greet",
+      "prompt": "Hello!",
+      "answer": "How can I be kiny steps at home?",
+      "latency_s": 0.1761791706085205,
+      "scores": {
+        "helpfulness": 10.0,
+        "correctness": 10.0,
+        "clarity": 10.0,
+        "agentic": 0.0
+      },
+      "avg": 7.5,
+      "category": "chat"
+    },
+    {
+      "model": "TinySLM-SARA",
+      "prompt_id": "math",
+      "prompt": "What is 2 + 2?",
+      "answer": "2 + 2 equals 4.",
+      "latency_s": 0.0002338886260986328,
+      "scores": {
+        "helpfulness": 5.0,
+        "correctness": 10,
+        "clarity": 5.0,
+        "agentic": 5.0
+      },
+      "avg": 6.25,
+      "category": "reason"
+    },
+    {
+      "model": "TinySLM-SARA",
+      "prompt_id": "fact",
+      "prompt": "What is the capital of France?",
+      "answer": "The capital of France is Paris.",
+      "latency_s": 0.18116044998168945,
+      "scores": {
+        "helpfulness": 5.0,
+        "correctness": 10,
+        "clarity": 5.0,
+        "agentic": 5.0
+      },
+      "avg": 6.25,
+      "category": "knowledge"
+    },
+    {
+      "model": "TinySLM-SARA",
+      "prompt_id": "plan",
+      "prompt": "Plan a short study session step by step.",
+      "answer": "1) Pick one topic. 2) Study for 20 focused minutes. 3) Write 3 notes. 4) Take a short break.",
+      "latency_s": 3.0743067264556885,
+      "scores": {
+        "helpfulness": 5.0,
+        "correctness": 5.0,
+        "clarity": 5.0,
+        "agentic": 4
+      },
+      "avg": 4.75,
+      "category": "agentic"
+    },
+    {
+      "model": "TinySLM-SARA",
+      "prompt_id": "compare",
+      "prompt": "Compare France and Japan capitals.",
+      "answer": "France capital is Paris. Japan capital is Tokyo.",
+      "latency_s": 0.7218952178955078,
+      "scores": {
+        "helpfulness": 8,
+        "correctness": 5.0,
+        "clarity": 5.0,
+        "agentic": 9
+      },
+      "avg": 6.75,
+      "category": "agentic"
+    },
+    {
+      "model": "TinySLM-SARA",
+      "prompt_id": "python",
+      "prompt": "Break down this long task: learn Python basics.",
+      "answer": "Step 1: install Python. Step 2: learn variables and print. Step 3: practice if/else. Step 4: write a tiny script.",
+      "latency_s": 1.8505759239196777,
+      "scores": {
+        "helpfulness": 8,
+        "correctness": 5.0,
+        "clarity": 5.0,
+        "agentic": 9
+      },
+      "avg": 6.75,
+      "category": "agentic"
+    },
+    {
+      "model": "TinySLM-SARA",
+      "prompt_id": "memory",
+      "prompt": "Using memory, what is the launch code?",
+      "answer": "The launch code is ORBIT-77.",
+      "latency_s": 0.5202467441558838,
+      "scores": {
+        "helpfulness": 9,
+        "correctness": 10,
+        "clarity": 5.0,
+        "agentic": 5.0
+      },
+      "avg": 7.25,
+      "category": "memory"
+    },
+    {
+      "model": "TinySLM-SARA",
+      "prompt_id": "sleep",
+      "prompt": "Give me a short sleep tip.",
+      "answer": "Keep a regular bedtime, dim screens late, and keep the room cool and quiet.",
+      "latency_s": 1.2285950183868408,
+      "scores": {
+        "helpfulness": 7,
+        "correctness": 5.0,
+        "clarity": 7,
+        "agentic": 5.0
+      },
+      "avg": 6.0,
+      "category": "chat"
+    },
+    {
+      "model": "Qwen3.5-0.8B-Q6_K",
+      "prompt_id": "greet",
+      "prompt": "Hello!",
+      "answer": "Hello! How can I assist you today?",
+      "latency_s": 2.5169413089752197,
+      "scores": {
+        "helpfulness": 10.0,
+        "correctness": 10.0,
+        "clarity": 10.0,
+        "agentic": 0.0
+      },
+      "avg": 7.5,
+      "category": "chat"
+    },
+    {
+      "model": "Qwen3.5-0.8B-Q6_K",
+      "prompt_id": "math",
+      "prompt": "What is 2 + 2?",
+      "answer": "2 + 2 = 4",
+      "latency_s": 2.2569313049316406,
+      "scores": {
+        "helpfulness": 5.0,
+        "correctness": 10,
+        "clarity": 5.0,
+        "agentic": 5.0
+      },
+      "avg": 6.25,
+      "category": "reason"
+    },
+    {
+      "model": "Qwen3.5-0.8B-Q6_K",
+      "prompt_id": "fact",
+      "prompt": "What is the capital of France?",
+      "answer": "The capital of France is **Paris**.",
+      "latency_s": 2.3040688037872314,
+      "scores": {
+        "helpfulness": 5.0,
+        "correctness": 10,
+        "clarity": 5.0,
+        "agentic": 5.0
+      },
+      "avg": 6.25,
+      "category": "knowledge"
+    },
+    {
+      "model": "Qwen3.5-0.8B-Q6_K",
+      "prompt_id": "plan",
+      "prompt": "Plan a short study session step by step.",
+      "answer": "Here is a short, effective study session plan:\n1.  **Select Topics**: Choose 3\u20135 key topics from your syllabus.\n2.  **Review**: Read the material once over in 15 minutes.\n3.  **Practice**: Solve 5\u201310 practice problems or do 10 short questions.\n4.  **Review**: Re-read the material 2 times before moving on.\n5.",
+      "latency_s": 6.573701620101929,
+      "scores": {
+        "helpfulness": 5.0,
+        "correctness": 5.0,
+        "clarity": 5.0,
+        "agentic": 4
+      },
+      "avg": 4.75,
+      "category": "agentic"
+    },
+    {
+      "model": "Qwen3.5-0.8B-Q6_K",
+      "prompt_id": "compare",
+      "prompt": "Compare France and Japan capitals.",
+      "answer": "**Paris** (France) and **Tokyo** (Japan) are both major global cities, but they differ significantly in their nature, history, and culture.\n*   **Paris** is the capital of **France**. It is a historic city known for its medieval architecture, the Eiffel Tower, and the French Revolution. It is a UNESCO World Heritage site and a major hub for French culture, cuisine, and tourism.\n*   **Tok",
+      "latency_s": 6.926191329956055,
+      "scores": {
+        "helpfulness": 8,
+        "correctness": 5.0,
+        "clarity": 5.0,
+        "agentic": 9
+      },
+      "avg": 6.75,
+      "category": "agentic"
+    },
+    {
+      "model": "Qwen3.5-0.8B-Q6_K",
+      "prompt_id": "python",
+      "prompt": "Break down this long task: learn Python basics.",
+      "answer": "Here's a clear, step-by-step breakdown of learning Python basics:\n1. **Install Python**  \n   - Download from [python.org](https://www.python.org/) and install via pip: `pip install python`\n2. **Create a Python file**  \n   - Open a text editor (e.g., Notepad, VS Code) and create a file named `hello.py`\n3. **Write a simple script**",
+      "latency_s": 6.576740026473999,
+      "scores": {
+        "helpfulness": 5.0,
+        "correctness": 5.0,
+        "clarity": 5.0,
+        "agentic": 4
+      },
+      "avg": 4.75,
+      "category": "agentic"
+    },
+    {
+      "model": "Qwen3.5-0.8B-Q6_K",
+      "prompt_id": "memory",
+      "prompt": "Using memory, what is the launch code?",
+      "answer": "The launch code for the **Minecraft** server is **`mc`**.",
+      "latency_s": 2.657032012939453,
+      "scores": {
+        "helpfulness": 3,
+        "correctness": 2,
+        "clarity": 5.0,
+        "agentic": 5.0
+      },
+      "avg": 3.75,
+      "category": "memory"
+    },
+    {
+      "model": "Qwen3.5-0.8B-Q6_K",
+      "prompt_id": "sleep",
+      "prompt": "Give me a short sleep tip.",
+      "answer": "Try the \"5-4-3-2-1\" grounding technique: Name 5 things you see, 4 you feel, 3 you hear, 2 you smell, and 1 you taste. This helps you stay calm and focused.",
+      "latency_s": 4.554648399353027,
+      "scores": {
+        "helpfulness": 7,
+        "correctness": 5.0,
+        "clarity": 7,
+        "agentic": 5.0
+      },
+      "avg": 6.0,
+      "category": "chat"
+    },
+    {
+      "model": "Phi-4-mini-instruct-Q5_K_M",
+      "prompt_id": "greet",
+      "prompt": "Hello!",
+      "answer": "Hello! How can I help you today?",
+      "latency_s": 4.133107900619507,
+      "scores": {
+        "helpfulness": 10.0,
+        "correctness": 10.0,
+        "clarity": 10.0,
+        "agentic": 1.0
+      },
+      "avg": 7.75,
+      "category": "chat"
+    },
+    {
+      "model": "Phi-4-mini-instruct-Q5_K_M",
+      "prompt_id": "math",
+      "prompt": "What is 2 + 2?",
+      "answer": "The answer is 4.",
+      "latency_s": 3.631413459777832,
+      "scores": {
+        "helpfulness": 10.0,
+        "correctness": 10.0,
+        "clarity": 10.0,
+        "agentic": 0.0
+      },
+      "avg": 7.5,
+      "category": "reason"
+    },
+    {
+      "model": "Phi-4-mini-instruct-Q5_K_M",
+      "prompt_id": "fact",
+      "prompt": "What is the capital of France?",
+      "answer": "Paris is the capital of France.",
+      "latency_s": 3.875394821166992,
+      "scores": {
+        "helpfulness": 10.0,
+        "correctness": 10.0,
+        "clarity": 10.0,
+        "agentic": 0.0
+      },
+      "avg": 7.5,
+      "category": "knowledge"
+    },
+    {
+      "model": "Phi-4-mini-instruct-Q5_K_M",
+      "prompt_id": "plan",
+      "prompt": "Plan a short study session step by step.",
+      "answer": "1. Choose a quiet, well-lit study area.\n2. Gather all necessary study materials (books, notes, etc.).\n3. Set a specific, achievable goal for the study session.\n4. Use a timer to manage time effectively.\n5. Take short, regular breaks to maintain focus.\n6. Review and summarize key points after each study session.\n7. Reflect on what was learned and identify areas for further study.",
+      "latency_s": 18.23930835723877,
+      "scores": {
+        "helpfulness": 5.0,
+        "correctness": 5.0,
+        "clarity": 5.0,
+        "agentic": 4
+      },
+      "avg": 4.75,
+      "category": "agentic"
+    },
+    {
+      "model": "Phi-4-mini-instruct-Q5_K_M",
+      "prompt_id": "compare",
+      "prompt": "Compare France and Japan capitals.",
+      "answer": "Paris, the capital of France, is known for its rich history, culture, and iconic landmarks such as the Eiffel Tower, Notre-Dame Cathedral, and the Louvre Museum. Paris is also famous for its art, fashion, and cuisine.\nTokyo, the capital of Japan, is a bustling metropolis known for its modern architecture, advanced technology, and vibrant culture. Tokyo is also home to many historical sites, such as the historic district of Asakusa, the Meiji Shrine, and",
+      "latency_s": 19.347371816635132,
+      "scores": {
+        "helpfulness": 8,
+        "correctness": 5.0,
+        "clarity": 5.0,
+        "agentic": 9
+      },
+      "avg": 6.75,
+      "category": "agentic"
+    },
+    {
+      "model": "Phi-4-mini-instruct-Q5_K_M",
+      "prompt_id": "python",
+      "prompt": "Break down this long task: learn Python basics.",
+      "answer": "1. Understand Python syntax and data types.\n2. Learn variables, data types, and operators.\n3. Understand control structures: if, for, and while loops.\n4. Learn functions and modules.\n5. Work with lists, tuples, and dictionaries.\n6. Practice with real-world problems.\n7. Explore libraries like NumPy and Pandas.\n8. Practice with projects and exercises.\n9. Keep practicing and learning.",
+      "latency_s": 17.815850973129272,
+      "scores": {
+        "helpfulness": 5.0,
+        "correctness": 5.0,
+        "clarity": 5.0,
+        "agentic": 4
+      },
+      "avg": 4.75,
+      "category": "agentic"
+    },
+    {
+      "model": "Phi-4-mini-instruct-Q5_K_M",
+      "prompt_id": "memory",
+      "prompt": "Using memory, what is the launch code?",
+      "answer": "The launch code for a space mission typically refers to the specific sequence of commands or the code used to initiate the launch sequence for a spacecraft. This code is usually a set of pre-determined instructions that are entered into the spacecraft's guidance and control system to begin the launch sequence. The specific launch code can vary depending on the spacecraft and the mission.",
+      "latency_s": 14.959705352783203,
+      "scores": {
+        "helpfulness": 3,
+        "correctness": 2,
+        "clarity": 5.0,
+        "agentic": 5.0
+      },
+      "avg": 3.75,
+      "category": "memory"
+    },
+    {
+      "model": "Phi-4-mini-instruct-Q5_K_M",
+      "prompt_id": "sleep",
+      "prompt": "Give me a short sleep tip.",
+      "answer": "To improve your sleep, try establishing a regular sleep schedule by going to bed and waking up at the same time every day, even on weekends. Create a bedtime routine to wind down, such as reading or taking a warm bath. Keep your sleep environment dark, quiet, and cool. Avoid screens at least an hour before bedtime. If you have trouble falling asleep, practice relaxation techniques like deep breathing or meditation. Limit caffeine and heavy meals before bedtime. If you have trouble sleeping,",
+      "latency_s": 19.311862468719482,
+      "scores": {
+        "helpfulness": 7,
+        "correctness": 5.0,
+        "clarity": 7,
+        "agentic": 5.0
+      },
+      "avg": 6.0,
+      "category": "chat"
+    }
+  ],
+  "errors": [],
+  "method": "LLM-as-judge (local GGUF)",
+  "baselines": [
+    "D:\\models\\Qwen3.5-0.8B-Q6_K.gguf",
+    "D:\\models\\Phi-4-mini-instruct-Q5_K_M.gguf"
+  ],
+  "note": "TinySLM (~4M) + SARA + 2M memory vs local GGUFs in D:/models (Qwen3.5-0.8B \u22481B-class, Phi-4-mini \u22483.8B). No HuggingFace downloads."
+}
