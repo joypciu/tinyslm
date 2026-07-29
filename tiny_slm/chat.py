@@ -141,11 +141,11 @@ class TinyChat:
         self,
         user: str,
         max_new_tokens: int = 96,
-        temperature: float = 0.35,
-        top_k: int = 30,
+        temperature: float = 0.42,
+        top_k: int = 28,
         force_search: bool = False,
         force_agent: bool = False,
-        repetition_penalty: float = 1.12,
+        repetition_penalty: float = 1.18,
     ) -> Tuple[str, Optional[str]]:
         tool_block = ""
         memory_block = ""
