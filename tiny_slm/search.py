@@ -1,0 +1,85 @@
+"""DuckDuckGo web search helper (no API key)."""
+
+from __future__ import annotations
+
+import re
+from typing import List
+
+
+def _get_ddgs():
+    try:
+        from ddgs import DDGS
+        return DDGS
+    except ImportError:
+        try:
+            from duckduckgo_search import DDGS
+            return DDGS
+        except ImportError as e:
+            raise ImportError("Install search backend: pip install ddgs") from e
+
+
+def clean_search_query(user_message: str) -> str:
+    """Strip chat fluff so DuckDuckGo gets a usable query."""
+    q = (user_message or "").strip()
+    q = re.sub(
+        r"^(please\s+)?(search\s+(the\s+web\s+for\s+|for\s+)?|look\s+up\s+|google\s+|find\s+)",
+        "",
+        q,
+        flags=re.I,
+    ).strip()
+    return q or user_message.strip()
+
+
+def search_web(query: str, max_results: int = 3) -> str:
+    """Return a short plain-text digest of DuckDuckGo results."""
+    query = clean_search_query(query)
+    if not query:
+        return ""
+
+    DDGS = _get_ddgs()
+    try:
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, max_results=max_results))
+    except TypeError:
+        # Some versions don't use context manager
+        try:
+            ddgs = DDGS()
+            results = list(ddgs.text(query, max_results=max_results))
+        except Exception as exc:
+            return f"(search failed: {exc})"
+    except Exception as exc:
+        return f"(search failed: {exc})"
+
+    if not results:
+        return "(no search results)"
+
+    lines: List[str] = []
+    for i, r in enumerate(results, 1):
+        title = (r.get("title") or "").strip()
+        body = (r.get("body") or r.get("snippet") or "").strip()
+        href = (r.get("href") or r.get("link") or "").strip()
+        lines.append(f"{i}. {title}\n{body}\n{href}")
+    return "\n\n".join(lines)
+
+
+def needs_search(user_message: str) -> bool:
+    """Heuristic: current events / factual lookup cues."""
+    msg = user_message.lower()
+    triggers = [
+        "search",
+        "look up",
+        "google",
+        "duckduckgo",
+        "what is the latest",
+        "who is",
+        "when did",
+        "news",
+        "current",
+        "today",
+        "2024",
+        "2025",
+        "2026",
+        "price of",
+        "weather",
+    ]
+    return any(t in msg for t in triggers)

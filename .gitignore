@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.gradio/
+*.egg-info/
+.DS_Store
+Thumbs.db
+
+# Keep trained weights + tokenizer in repo (needed to chat without retraining)
+# Ignore local scratch only
+checkpoints/*.tmp
+data/*.txt
+!data/.gitkeep

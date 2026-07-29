@@ -1,0 +1,18 @@
+{
+  "vocab_size": 1024,
+  "n_layer": 6,
+  "n_head": 8,
+  "n_kv_head": 1,
+  "n_embd": 256,
+  "intermediate_size": 704,
+  "block_size": 256,
+  "dropout": 0.0,
+  "bias": false,
+  "rope_theta": 500000.0,
+  "arch": "tinyslm_v2",
+  "max_memory_tokens": 2000000,
+  "bos_token_id": 1,
+  "eos_token_id": 2,
+  "pad_token_id": 0,
+  "unk_token_id": 3
+}
