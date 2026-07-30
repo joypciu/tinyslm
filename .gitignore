@@ -10,6 +10,7 @@ Thumbs.db
 # Keep trained weights + tokenizer in repo (needed to chat without retraining)
 # Ignore local scratch only
 checkpoints/*.tmp
+checkpoints/tinyslm_pre_*.pt
 checkpoints/memory_store.json
 checkpoints/_smoke_memory.json
 data/*.txt

@@ -480,6 +480,14 @@ _PLAN_TEMPLATES: List[Tuple[List[str], str]] = [
         "Step 1: install Python. Step 2: learn variables and print. Step 3: practice if/else. Step 4: write a tiny script.",
     ),
     (
+        ["debug", "debug a", "fix a bug", "python script"],
+        "Step 1: read the error message. Step 2: print key variables. Step 3: fix one bug. Step 4: rerun the script.",
+    ),
+    (
+        ["coding practice", "practice session", "coding session"],
+        "1) Pick one small function. 2) Write tests for two cases. 3) Implement it. 4) Refactor names.",
+    ),
+    (
         ["homework", "small homework", "plan homework"],
         "1) List the due work. 2) Do the hardest item first for 15 minutes. 3) Check answers. 4) Pack what you need for tomorrow.",
     ),

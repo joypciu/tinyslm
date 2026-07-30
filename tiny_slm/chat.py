@@ -222,50 +222,52 @@ class TinyChat:
         force_agent: bool = False,
         repetition_penalty: float = 1.18,
         use_sara: bool = True,
+        use_grounded: bool = True,
     ) -> Tuple[str, Optional[str]]:
         search_digest: Optional[str] = None
         memory_block = ""
         if self.memory.chunks:
             memory_block = self.memory.retrieve(user, top_k=4, max_chars=800)
 
-        # Extractive memory reply (no training) — tiny nets rarely copy rare codes
-        mem_direct = answer_from_memory(user, memory_block) if memory_block else None
-        if mem_direct:
-            header = [
-                f"[memory] extractive "
-                f"({self.memory.stats()['tokens']:,}/{self.memory.max_tokens:,} tok store)"
-            ]
-            display = "\n".join(header) + f"\n\n[model]\n{mem_direct}"
-            clean = _clean_for_history(mem_direct)
-            self.history.append((user, clean))
-            self.memory.add_turn(user, clean)
-            return display, search_digest
+        if use_grounded:
+            # Extractive memory reply (no training) — tiny nets rarely copy rare codes
+            mem_direct = answer_from_memory(user, memory_block) if memory_block else None
+            if mem_direct:
+                header = [
+                    f"[memory] extractive "
+                    f"({self.memory.stats()['tokens']:,}/{self.memory.max_tokens:,} tok store)"
+                ]
+                display = "\n".join(header) + f"\n\n[model]\n{mem_direct}"
+                clean = _clean_for_history(mem_direct)
+                self.history.append((user, clean))
+                self.memory.add_turn(user, clean)
+                return display, search_digest
 
-        # Symbolic math before FAQ / neural (no training)
-        math_ans = try_eval_math(user)
-        if math_ans:
-            self.history.append((user, math_ans[:280]))
-            self.memory.add_turn(user, math_ans[:280])
-            return math_ans, search_digest
+            # Symbolic math before FAQ / neural (no training)
+            math_ans = try_eval_math(user)
+            if math_ans:
+                self.history.append((user, math_ans[:280]))
+                self.memory.add_turn(user, math_ans[:280])
+                return math_ans, search_digest
 
-        # Grounded FAQ cards (no training) — covers brittle short definitions
-        faq = answer_from_faq(user)
-        if faq:
-            self.history.append((user, faq[:280]))
-            self.memory.add_turn(user, faq[:280])
-            return faq, search_digest
+            # Grounded FAQ cards (no training) — covers brittle short definitions
+            faq = answer_from_faq(user)
+            if faq:
+                self.history.append((user, faq[:280]))
+                self.memory.add_turn(user, faq[:280])
+                return faq, search_digest
 
-        plan = answer_from_plan_template(user)
-        if plan:
-            self.history.append((user, plan[:280]))
-            self.memory.add_turn(user, plan[:280])
-            return plan, search_digest
+            plan = answer_from_plan_template(user)
+            if plan:
+                self.history.append((user, plan[:280]))
+                self.memory.add_turn(user, plan[:280])
+                return plan, search_digest
 
-        code = answer_from_code_template(user)
-        if code:
-            self.history.append((user, code[:280]))
-            self.memory.add_turn(user, code[:280])
-            return code, search_digest
+            code = answer_from_code_template(user)
+            if code:
+                self.history.append((user, code[:280]))
+                self.memory.add_turn(user, code[:280])
+                return code, search_digest
 
         # Auto web search for open knowledge / news before weak neural decode
         if force_search or (self.auto_search and needs_search(user)):
