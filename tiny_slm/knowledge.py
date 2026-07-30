@@ -539,8 +539,14 @@ def looks_low_quality(reply: str) -> bool:
     if "user ask:" in low or "notes:" in low:
         return True
     letters = re.findall(r"[A-Za-z]", t)
-    if letters and len(letters) / max(1, len(t)) < 0.45:
+    # Short math answers ("2 + 2 equals 4.") are digit-heavy; don't treat that as gibberish.
+    has_digit = bool(re.search(r"\d", t))
+    has_word = bool(re.search(r"[A-Za-z]{3,}", t))
+    if has_digit and not has_word:
         return True
+    if letters and len(letters) / max(1, len(t)) < 0.45:
+        if not (has_digit and has_word and len(t) < 48):
+            return True
     words = re.findall(r"[A-Za-z']+", low)
     if words and len(set(words)) <= 2 and len(words) >= 5:
         return True
