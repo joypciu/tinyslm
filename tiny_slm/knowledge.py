@@ -169,6 +169,10 @@ _FAQ: List[Tuple[List[str], str]] = [
         ["what is ai", "what's ai", "what is artificial intelligence"],
         "AI is software that learns patterns from data to help with language, vision, planning, and similar tasks.",
     ),
+    (
+        ["what is tinyslm", "what's tinyslm", "about tinyslm"],
+        "TinySLM is a tiny from-scratch chat model with a short neural window plus up to 2M tokens of retrieved memory.",
+    ),
 ]
 
 
@@ -301,6 +305,29 @@ def answer_from_plan_template(user: str) -> Optional[str]:
         if any(c in norm for c in cues):
             return ans
     return None
+
+
+def looks_low_quality(reply: str) -> bool:
+    """Heuristic for collapsed / gibberish tiny-model drafts."""
+    t = (reply or "").strip()
+    if len(t) < 4:
+        return True
+    low = t.lower()
+    if low.startswith("plan:") and len(t) < 48:
+        return True
+    if "user ask:" in low or "notes:" in low:
+        return True
+    letters = re.findall(r"[A-Za-z]", t)
+    if letters and len(letters) / max(1, len(t)) < 0.45:
+        return True
+    words = re.findall(r"[A-Za-z']+", low)
+    if words and len(set(words)) <= 2 and len(words) >= 5:
+        return True
+    # Broken mid-word endings without sentence close
+    if len(t) > 40 and t[-1] not in ".!?)" and re.search(r"\b\w{1,2}$", t):
+        if not re.search(r"[.!?]", t):
+            return True
+    return False
 
 
 def looks_like_echo(user: str, reply: str) -> bool:

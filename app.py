@@ -14,11 +14,13 @@ ROOT = Path(__file__).resolve().parent
 
 def build_demo(chat: TinyChat) -> gr.Blocks:
     with gr.Blocks(title="TinySLM") as demo:
+        mem_path = ROOT / "checkpoints" / "memory_store.json"
+        status = gr.Markdown("")
         gr.Markdown(
             """
             # TinySLM
-            A small language model **trained from scratch** on your machine.
-            Uses DuckDuckGo when a question looks like it needs live web info.
+            From-scratch SLM with **2M memory**, SARA tools, FAQ/math fast-paths, and DuckDuckGo.
+            Tip: say *search* / *news* for live lookup; memory survives via Save/Load.
             """
         )
         chatbot = gr.Chatbot(height=420, label="Chat")
@@ -33,12 +35,14 @@ def build_demo(chat: TinyChat) -> gr.Blocks:
             force_search = gr.Checkbox(label="Force DuckDuckGo search", value=False)
             temperature = gr.Slider(0.1, 1.5, value=0.4, step=0.1, label="Temperature")
             clear = gr.Button("Clear")
+            save_mem = gr.Button("Save memory")
+            load_mem = gr.Button("Load memory")
 
         def respond(message, history, do_search, temp):
             history = list(history or [])
             message = (message or "").strip()
             if not message:
-                return history, ""
+                return history, "", ""
             reply, _ = chat.generate_reply(
                 message,
                 temperature=float(temp),
@@ -48,16 +52,39 @@ def build_demo(chat: TinyChat) -> gr.Blocks:
                 {"role": "user", "content": message},
                 {"role": "assistant", "content": reply},
             ]
-            return history, ""
+            st = chat.memory.stats()
+            note = (
+                f"memory {st['tokens']:,}/{st['max_tokens']:,} tok · "
+                f"{st['chunks']} chunks · history {len(chat.history)} turns"
+            )
+            return history, "", note
 
         def on_clear():
             chat.reset()
             chat.clear_memory()
-            return []
+            return [], "memory cleared (skills re-seeded)"
 
-        send.click(respond, [msg, chatbot, force_search, temperature], [chatbot, msg])
-        msg.submit(respond, [msg, chatbot, force_search, temperature], [chatbot, msg])
-        clear.click(on_clear, outputs=[chatbot])
+        def on_save():
+            chat.save_memory(mem_path)
+            return f"saved → {mem_path}"
+
+        def on_load():
+            info = chat.load_memory(mem_path)
+            return f"loaded {info}"
+
+        send.click(
+            respond,
+            [msg, chatbot, force_search, temperature],
+            [chatbot, msg, status],
+        )
+        msg.submit(
+            respond,
+            [msg, chatbot, force_search, temperature],
+            [chatbot, msg, status],
+        )
+        clear.click(on_clear, outputs=[chatbot, status])
+        save_mem.click(on_save, outputs=[status])
+        load_mem.click(on_load, outputs=[status])
 
     return demo
 

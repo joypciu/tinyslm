@@ -14,6 +14,7 @@ from tiny_slm.knowledge import (
     answer_from_faq,
     answer_from_plan_template,
     looks_like_echo,
+    looks_low_quality,
     scrub_generation,
 )
 from tiny_slm.memory import LongContextMemory, answer_from_memory, looks_like_recall
@@ -282,10 +283,15 @@ class TinyChat:
                 force_agent=force_agent or looks_agentic(user) or looks_like_recall(user),
             )
             reply = scrub_generation(sara.final or "(empty reply)")
-            if looks_like_echo(user, reply):
+            if looks_like_echo(user, reply) or looks_low_quality(reply):
                 faq_fallback = answer_from_faq(user)
-                if faq_fallback:
-                    reply = faq_fallback
+                plan_fallback = answer_from_plan_template(user)
+                reply = (
+                    faq_fallback
+                    or plan_fallback
+                    or (reply if not looks_low_quality(reply) else "")
+                    or "I'm not sure I followed that — try a shorter question?"
+                )
             header = [
                 f"[sara] skills={len(sara.skills)} revised={sara.revised} reflect={sara.reflection}"
             ]
@@ -343,12 +349,13 @@ class TinyChat:
             m = re.match(r"^(.+?[.!?])(\s|$)", reply, re.S)
             if m and len(m.group(1)) >= 20:
                 reply = m.group(1).strip()
-        if not reply or looks_like_echo(user, reply):
+        if not reply or looks_like_echo(user, reply) or looks_low_quality(reply):
             faq_fallback = answer_from_faq(user)
+            plan_fallback = answer_from_plan_template(user)
             web_fallback = answer_from_search(search_digest or "") if search_digest else None
-            reply = faq_fallback or web_fallback or reply or (
-                "(empty reply — train longer for better chat)"
-            )
+            reply = faq_fallback or plan_fallback or web_fallback or (
+                reply if reply and not looks_low_quality(reply) else None
+            ) or "I'm not sure I followed that — try a shorter question?"
 
         display = reply
         header_parts = []
