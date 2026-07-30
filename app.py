@@ -37,6 +37,11 @@ def build_demo(chat: TinyChat) -> gr.Blocks:
             clear = gr.Button("Clear")
             save_mem = gr.Button("Save memory")
             load_mem = gr.Button("Load memory")
+        ingest_file = gr.File(
+            label="Ingest text/markdown into 2M memory",
+            file_types=[".txt", ".md", ".csv"],
+            type="filepath",
+        )
 
         def respond(message, history, do_search, temp):
             history = list(history or [])
@@ -72,6 +77,14 @@ def build_demo(chat: TinyChat) -> gr.Blocks:
             info = chat.load_memory(mem_path)
             return f"loaded {info}"
 
+        def on_ingest(path):
+            if not path:
+                return "no file"
+            p = Path(path)
+            text = p.read_text(encoding="utf-8", errors="ignore")
+            info = chat.ingest(text, source=f"file:{p.name}")
+            return f"ingested {p.name}: {info}"
+
         send.click(
             respond,
             [msg, chatbot, force_search, temperature],
@@ -85,6 +98,7 @@ def build_demo(chat: TinyChat) -> gr.Blocks:
         clear.click(on_clear, outputs=[chatbot, status])
         save_mem.click(on_save, outputs=[status])
         load_mem.click(on_load, outputs=[status])
+        ingest_file.change(on_ingest, inputs=[ingest_file], outputs=[status])
 
     return demo
 

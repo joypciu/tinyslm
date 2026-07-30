@@ -20,7 +20,7 @@ def main() -> None:
     mem_path = ROOT / "checkpoints" / "memory_store.json"
     print(
         f"TinySLM ready ({chat.model.n_parameters():,} params). "
-        "Commands: quit | /clear | /memory | /save | /load | /search <q>\n"
+        "Commands: quit | /clear | /memory | /save | /load | /ingest <path> | /search <q>\n"
     )
 
     while True:
@@ -53,6 +53,15 @@ def main() -> None:
         if user.lower() in {"/load", "load"}:
             info = chat.load_memory(mem_path)
             print(f"(memory loaded: {info})")
+            continue
+        if user.lower().startswith("/ingest "):
+            path = Path(user[8:].strip().strip('"'))
+            if not path.exists():
+                print(f"(missing file: {path})")
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            info = chat.ingest(text, source=f"file:{path.name}")
+            print(f"(ingested {path.name}: {info})")
             continue
         force = user.lower().startswith("/search ")
         if force:
