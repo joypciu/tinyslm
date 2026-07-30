@@ -9,7 +9,7 @@
   "dropout": 0.0,
   "bias": false,
   "rope_theta": 500000.0,
-  "arch": "tinyslm_v2_longctx_lora_lora_lora",
+  "arch": "tinyslm_v2_longctx_lora",
   "max_memory_tokens": 2000000,
   "rope_scale": 1.0,
   "adapter_rank": 8,

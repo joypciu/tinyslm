@@ -18,7 +18,7 @@ _FAQ: List[Tuple[List[str], str]] = [
         "RAM is short-term computer memory the CPU uses to hold running programs and data.",
     ),
     (
-        ["what is cpu", "what's cpu", "whats cpu", "define cpu"],
+        ["what is cpu", "what's cpu", "whats cpu", "define cpu", "what is a cpu", "what's a cpu"],
         "A CPU (central processing unit) is the main chip that runs instructions in a computer.",
     ),
     (
@@ -228,6 +228,18 @@ _FAQ: List[Tuple[List[str], str]] = [
         ["what is a transformer", "what's a transformer model"],
         "A Transformer is a neural architecture that uses attention layers to model sequences efficiently.",
     ),
+    (
+        ["what is an api", "what's an api", "what is api"],
+        "An API is a defined way for programs to talk to each other, like requesting data from a web service.",
+    ),
+    (
+        ["what is debugging", "what's debugging", "how to debug"],
+        "Debugging means finding and fixing mistakes: read the error, reproduce it, change one thing, and retest.",
+    ),
+    (
+        ["what is a boolean", "what's a boolean", "boolean in programming"],
+        "A boolean is True or False - used for yes/no decisions in if statements and loops.",
+    ),
 ]
 
 _CODE_CARDS: List[Tuple[List[str], str]] = [
@@ -240,7 +252,7 @@ _CODE_CARDS: List[Tuple[List[str], str]] = [
         "s = 'hello'\nreversed_s = s[::-1]  # 'olleh'\n# or: ''.join(reversed(s))",
     ),
     (
-        ["for loop", "what is a for loop", "explain for loop"],
+        ["for loop", "what is a for loop", "explain for loop", "explain what a for loop"],
         "A for loop repeats work for each item:\nfor x in [1, 2, 3]:\n    print(x)",
     ),
     (

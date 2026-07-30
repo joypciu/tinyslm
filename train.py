@@ -57,6 +57,7 @@ def load_corpus(data_dir: Path, chat_repeat: int = 40) -> str:
                 "sara",
                 "coding",
                 "rehearsal",
+                "intelligence",
             )
         ):
             chat_parts.append(text)

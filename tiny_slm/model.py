@@ -285,7 +285,7 @@ class TinySLM(nn.Module):
         n = inject_lora(self, rank=rank, alpha=alpha)
         self.config.adapter_rank = rank
         self.config.adapter_alpha = alpha
-        if "expandable" not in self.config.arch:
+        if "_lora" not in self.config.arch:
             self.config.arch = f"{self.config.arch}_lora"
         return n
 

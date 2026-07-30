@@ -6,7 +6,6 @@ import re
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
-from tiny_slm.league_collect import looks_league_collect
 from tiny_slm.search import answer_from_search, clean_search_query, needs_search, search_web
 
 
@@ -55,7 +54,7 @@ def looks_agentic(user: str) -> bool:
 def build_plan(goal: str) -> List[str]:
     g = goal.lower()
     steps = []
-    if looks_league_collect(goal) or needs_search(goal) or any(
+    if needs_search(goal) or any(
         w in g for w in ("search", "research", "find", "news", "latest", "look up", "collect")
     ):
         steps.append("search")
