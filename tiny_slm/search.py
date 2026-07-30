@@ -83,3 +83,35 @@ def needs_search(user_message: str) -> bool:
         "weather",
     ]
     return any(t in msg for t in triggers)
+
+
+def answer_from_search(digest: str, max_chars: int = 280) -> str:
+    """Build a short grounded reply from a DuckDuckGo digest (no LM rewrite)."""
+    text = (digest or "").strip()
+    if not text or text.startswith("(search failed") or text.startswith("(no search"):
+        return ""
+    # Prefer first result body line after "1. title"
+    m = re.search(r"^1\.\s*(.+)$\n(.+)$", text, re.M)
+    if m:
+        title = m.group(1).strip()
+        body = m.group(2).strip()
+        # skip URL-only body
+        if body.startswith("http"):
+            body = ""
+        if body:
+            snip = body.split(". ")[0].strip().rstrip(".") + "."
+            out = f"From the web: {snip}"
+            if title and title.lower() not in snip.lower():
+                out = f"From the web ({title}): {snip}"
+            return out[:max_chars]
+        if title:
+            return f"From the web: {title}."[:max_chars]
+    # Fallback: first non-empty non-url line
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("http") or re.match(r"^\d+\.\s*$", line):
+            continue
+        line = re.sub(r"^\d+\.\s*", "", line)
+        if len(line) >= 12:
+            return ("From the web: " + line.rstrip(".") + ".")[:max_chars]
+    return ""

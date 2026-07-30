@@ -86,6 +86,22 @@ _FAQ: List[Tuple[List[str], str]] = [
         ["thank you", "thanks", "thanks!", "thank you!"],
         "You're welcome - happy to help anytime.",
     ),
+    (
+        ["how are you", "how are you doing", "how's it going", "hows it going"],
+        "I'm doing well - ready to help. What would you like to talk about?",
+    ),
+    (
+        ["what is wifi", "what's wifi", "what is wi fi", "what's wi fi", "what is wi-fi"],
+        "Wi-Fi is wireless networking that lets devices join a local network and reach the internet.",
+    ),
+    (
+        ["difference between ram and ssd", "ram vs ssd", "ram versus ssd"],
+        "RAM is fast temporary working memory; an SSD is slower long-term storage that keeps files when power is off.",
+    ),
+    (
+        ["what is a browser", "what's a browser", "what is web browser"],
+        "A web browser is an app for opening websites - for example Chrome, Firefox, Edge, or Safari.",
+    ),
 ]
 
 

@@ -19,7 +19,12 @@ from tiny_slm.knowledge import (
 from tiny_slm.memory import LongContextMemory, answer_from_memory, looks_like_recall
 from tiny_slm.model import TinySLM
 from tiny_slm.sara import run_sara, select_skills, try_eval_math
-from tiny_slm.search import clean_search_query, needs_search, search_web
+from tiny_slm.search import (
+    answer_from_search,
+    clean_search_query,
+    needs_search,
+    search_web,
+)
 from tiny_slm.tokenizer import TinyTokenizer
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -253,6 +258,20 @@ class TinyChat:
         if force_search or (self.auto_search and needs_search(user)):
             search_digest = search_web(clean_search_query(user), max_results=3)
             tool_block = f"[tool:search] {search_digest[:600]}"
+            # Prefer a grounded web snippet for explicit lookup-style asks
+            web_ans = answer_from_search(search_digest)
+            if web_ans and (
+                force_search
+                or any(
+                    w in user.lower()
+                    for w in ("search", "look up", "latest", "news", "who is", "when did")
+                )
+            ):
+                display = f"[web]\n{search_digest}\n\n[model]\n{web_ans}"
+                clean = _clean_for_history(web_ans)
+                self.history.append((user, clean))
+                self.memory.add_turn(user, clean)
+                return display, search_digest
         prompt = self._build_prompt(user, tool_block=tool_block, memory_block=memory_block)
         ids = self.tokenizer.encode(prompt)
         new_ids = self._generate(
@@ -269,7 +288,8 @@ class TinyChat:
             reply = reply.split("\n\n", 1)[0].strip()
         if not reply or looks_like_echo(user, reply):
             faq_fallback = answer_from_faq(user)
-            reply = faq_fallback or reply or (
+            web_fallback = answer_from_search(search_digest or "") if search_digest else None
+            reply = faq_fallback or web_fallback or reply or (
                 "(empty reply — train longer for better chat)"
             )
 
