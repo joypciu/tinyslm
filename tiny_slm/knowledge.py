@@ -272,6 +272,10 @@ _CODE_CARDS: List[Tuple[List[str], str]] = [
         "nums = [1, 2, 3, 4]\nlist(filter(lambda n: n % 2 == 0, nums))  # [2, 4]",
     ),
     (
+        ["enumerate", "use enumerate"],
+        "for i, x in enumerate(['a', 'b']):\n    print(i, x)",
+    ),
+    (
         ["try except", "exception handling", "try/except"],
         "try:\n    n = int(text)\nexcept ValueError:\n    print('not a number')",
     ),
@@ -628,6 +632,7 @@ def looks_wrong_coding_answer(user: str, reply: str) -> bool:
         (("list comprehension", "comprehension that square"), ("for", "in")),
         (("read a file", "read file"), ("open(", "read")),
         (("filter",), ("filter",)),
+        (("enumerate",), ("enumerate",)),
     )
     for cues, need in rules:
         if any(c in u for c in cues) and not any(n in r for n in need):

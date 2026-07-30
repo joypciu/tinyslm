@@ -21,6 +21,7 @@ CODING = [
     ("What is a dict in Python?", ["{", "name"]),
     ("How do I append to a list in Python?", ["append"]),
     ("How do I filter even numbers in Python?", ["filter"]),
+    ("How do I use enumerate in Python?", ["enumerate"]),
 ]
 
 AGENTIC = [
