@@ -115,6 +115,11 @@ def search_web(query: str, max_results: int = 4) -> str:
         return ""
     try:
         hits = search_web_hits(query, max_results=max_results)
+        # One retry with a simpler query if the first pass is empty
+        if not hits and " " in query:
+            short = " ".join(query.split()[:6])
+            if short != query:
+                hits = search_web_hits(short, max_results=max_results)
     except Exception as exc:
         return f"(search failed: {exc})"
     if not hits:

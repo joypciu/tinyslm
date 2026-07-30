@@ -192,6 +192,18 @@ _FAQ: List[Tuple[List[str], str]] = [
         ["what is a database", "what's a database"],
         "A database stores structured data so programs can insert, query, update, and delete it reliably.",
     ),
+    (
+        ["what is rest", "what's rest", "what is a rest api"],
+        "REST is a common API style using HTTP methods (GET, POST, PUT, DELETE) on resource URLs.",
+    ),
+    (
+        ["what is kubernetes", "what's kubernetes"],
+        "Kubernetes schedules and manages containers across machines so apps stay available and scalable.",
+    ),
+    (
+        ["what is recursion", "what's recursion"],
+        "Recursion is when a function solves a problem by calling itself on a smaller piece until a base case.",
+    ),
 ]
 
 _CODE_CARDS: List[Tuple[List[str], str]] = [
