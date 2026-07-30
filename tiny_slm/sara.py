@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Tuple
 
 from tiny_slm.agent import AgentState, build_plan, looks_agentic, run_agent_tools
+from tiny_slm.knowledge import answer_from_faq, answer_from_plan_template, scrub_generation
 from tiny_slm.memory import answer_from_memory
 from tiny_slm.search import clean_search_query, search_web
 
@@ -177,6 +178,20 @@ def run_sara(
         state.reflection = "extractive memory verify"
         return state
 
+    # FAQ / plan templates for brittle short facts (no weight updates)
+    faq = answer_from_faq(goal)
+    if faq and not (force_agent or looks_agentic(goal)):
+        state.draft = faq
+        state.final = faq
+        state.reflection = "faq card"
+        return state
+    plan = answer_from_plan_template(goal)
+    if plan:
+        state.draft = plan
+        state.final = plan
+        state.reflection = "plan template"
+        return state
+
     tool_block = ""
     if force_agent or looks_agentic(goal):
         tool_block, agent_state = run_agent_tools(
@@ -203,24 +218,29 @@ def run_sara(
         f"Answer the user clearly in short steps if needed.\n"
         f"User ask: {goal}"
     )
-    state.draft = (generate_fn(draft_prompt) or "").strip()
+    state.draft = scrub_generation(generate_fn(draft_prompt) or "")
 
     needs_fix, refl = reflect_on_draft(goal, state.draft, mem)
     state.reflection = refl
     if needs_fix:
-        # Prefer quoting memory over a second noisy generation
+        # Prefer quoting memory / FAQ over a second noisy generation
         mem_fix = answer_from_memory(goal, mem)
+        faq_fix = answer_from_faq(goal)
         if mem_fix:
             state.final = mem_fix
             state.revised = True
             state.reflection = refl + " | patched from memory"
+        elif faq_fix:
+            state.final = faq_fix
+            state.revised = True
+            state.reflection = refl + " | patched from faq"
         else:
             revise_prompt = (
                 f"Notes:\n{notes[:700]}\nReflection: {refl}\n"
                 f"Improve the draft. Draft was: {state.draft[:200]}\n"
                 f"User ask: {goal}"
             )
-            revised = (generate_fn(revise_prompt) or "").strip()
+            revised = scrub_generation(generate_fn(revise_prompt) or "")
             if revised and len(revised) >= 6:
                 state.final = revised
                 state.revised = True
@@ -229,6 +249,5 @@ def run_sara(
     else:
         state.final = state.draft
 
-    if not state.final:
-        state.final = state.draft or "(no answer)"
+    state.final = scrub_generation(state.final or state.draft or "(no answer)")
     return state

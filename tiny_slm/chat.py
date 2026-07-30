@@ -10,6 +10,12 @@ import torch
 import torch.nn.functional as F
 
 from tiny_slm.agent import looks_agentic
+from tiny_slm.knowledge import (
+    answer_from_faq,
+    answer_from_plan_template,
+    looks_like_echo,
+    scrub_generation,
+)
 from tiny_slm.memory import LongContextMemory, answer_from_memory, looks_like_recall
 from tiny_slm.model import TinySLM
 from tiny_slm.sara import run_sara, select_skills, try_eval_math
@@ -26,6 +32,7 @@ def _clean_for_history(reply: str) -> str:
         reply = reply.split("[model]", 1)[-1]
     reply = re.sub(r"^\[web\].*", "", reply, flags=re.S).strip()
     reply = re.sub(r"^\[agent\].*?\[model\]", "", reply, flags=re.S).strip()
+    reply = scrub_generation(reply)
     return reply[:280].strip()
 
 
@@ -167,6 +174,19 @@ class TinyChat:
             self.memory.add_turn(user, clean)
             return display, search_digest
 
+        # Grounded FAQ cards (no training) — covers brittle short definitions
+        faq = answer_from_faq(user)
+        if faq:
+            self.history.append((user, faq[:280]))
+            self.memory.add_turn(user, faq[:280])
+            return faq, search_digest
+
+        plan = answer_from_plan_template(user)
+        if plan:
+            self.history.append((user, plan[:280]))
+            self.memory.add_turn(user, plan[:280])
+            return plan, search_digest
+
         def _raw_generate(prompt_user: str) -> str:
             # Keep retrieved memory in the neural prompt for SARA drafts
             prompt = self._build_prompt(
@@ -204,7 +224,11 @@ class TinyChat:
                 auto_search=self.auto_search or force_search,
                 force_agent=force_agent or looks_agentic(user) or looks_like_recall(user),
             )
-            reply = sara.final or "(empty reply)"
+            reply = scrub_generation(sara.final or "(empty reply)")
+            if looks_like_echo(user, reply):
+                faq_fallback = answer_from_faq(user)
+                if faq_fallback:
+                    reply = faq_fallback
             header = [
                 f"[sara] skills={len(sara.skills)} revised={sara.revised} reflect={sara.reflection}"
             ]
@@ -238,11 +262,16 @@ class TinyChat:
             top_k=top_k,
             repetition_penalty=repetition_penalty,
         )
-        reply = self.tokenizer.decode(new_ids, skip_special=True).strip()
+        reply = scrub_generation(
+            self.tokenizer.decode(new_ids, skip_special=True).strip()
+        )
         if "\n\n" in reply:
             reply = reply.split("\n\n", 1)[0].strip()
-        if not reply:
-            reply = "(empty reply — train longer for better chat)"
+        if not reply or looks_like_echo(user, reply):
+            faq_fallback = answer_from_faq(user)
+            reply = faq_fallback or reply or (
+                "(empty reply — train longer for better chat)"
+            )
 
         display = reply
         header_parts = []
