@@ -195,6 +195,13 @@ def _best_sentences(text: str, limit: int = 2) -> List[str]:
     out = []
     for p in parts:
         p = p.strip()
+        # Strip DDG relative-time prefixes: "5 hours ago · ..."
+        p = re.sub(
+            r"^\d+\s+(minutes?|hours?|days?|weeks?)\s+ago\s*[·|\-:]?\s*",
+            "",
+            p,
+            flags=re.I,
+        ).strip()
         if len(p) < 25:
             continue
         if p.lower().startswith("http"):

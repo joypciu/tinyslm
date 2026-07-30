@@ -144,6 +144,18 @@ _FAQ: List[Tuple[List[str], str]] = [
         ["why do we sleep", "why sleep", "why do humans sleep"],
         "Sleep lets the body and brain rest, repair, and consolidate memories from the day.",
     ),
+    (
+        ["what is json", "what's json"],
+        "JSON is a simple text format for data objects and lists, widely used in APIs and config files.",
+    ),
+    (
+        ["what is an api", "what's an api", "what is api"],
+        "An API is a defined way for programs to talk to each other - request in, data or action out.",
+    ),
+    (
+        ["what is git", "what's git"],
+        "Git is a version-control tool that tracks changes in code so you can branch, merge, and roll back.",
+    ),
 ]
 
 _CODE_CARDS: List[Tuple[List[str], str]] = [
@@ -212,6 +224,12 @@ def answer_from_code_template(user: str) -> Optional[str]:
             "if else",
             "print",
             "list comprehension",
+            "dict",
+            "dictionary",
+            "class",
+            "file",
+            "except",
+            "exception",
         )
     ):
         return None
