@@ -83,7 +83,17 @@ def select_skills(goal: str, max_skills: int = 2) -> List[str]:
     g = " " + goal.lower() + " "
     hit = []
     for sk in SKILL_CARDS:
-        if any(t in g for t in sk["triggers"]):
+        matched = False
+        for t in sk["triggers"]:
+            # Short tokens need word boundaries ("hi" must not hit "friendship")
+            if len(t) <= 3:
+                if re.search(rf"(?<!\w){re.escape(t)}(?!\w)", g):
+                    matched = True
+                    break
+            elif t in g:
+                matched = True
+                break
+        if matched:
             hit.append(sk["card"])
     if not hit and looks_agentic(goal):
         hit.append(SKILL_CARDS[0]["card"])

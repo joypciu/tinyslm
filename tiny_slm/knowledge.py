@@ -37,23 +37,6 @@ _FAQ: List[Tuple[List[str], str]] = [
         ["i'm bored", "im bored", "i am bored"],
         "Want a short joke, a tiny story, or a fun fact? Pick one and I'll go with it.",
     ),
-    # Multi-entity compares must be matched before single-country cards
-    (
-        [
-            "compare france and japan",
-            "france and japan capital",
-            "japan and france capital",
-        ],
-        "France's capital is Paris. Japan's capital is Tokyo.",
-    ),
-    (
-        ["capital of france", "france capital", "france's capital"],
-        "The capital of France is Paris.",
-    ),
-    (
-        ["capital of japan", "japan capital", "japan's capital"],
-        "The capital of Japan is Tokyo.",
-    ),
     (
         ["are you human", "are you a human", "are you a person"],
         "No, I'm TinySLM, a small language model running on your computer.",
@@ -107,18 +90,6 @@ _FAQ: List[Tuple[List[str], str]] = [
         "Photosynthesis is how plants make food from sunlight, water, and carbon dioxide.",
     ),
     (
-        ["capital of germany", "germany capital", "germany's capital"],
-        "The capital of Germany is Berlin.",
-    ),
-    (
-        ["capital of italy", "italy capital", "italy's capital"],
-        "The capital of Italy is Rome.",
-    ),
-    (
-        ["capital of bangladesh", "bangladesh capital", "bangladesh's capital"],
-        "The capital of Bangladesh is Dhaka.",
-    ),
-    (
         ["tell me a joke", "short joke", "joke please"],
         "Why did the computer go to the doctor? Because it had a virus.",
     ),
@@ -158,14 +129,6 @@ _FAQ: List[Tuple[List[str], str]] = [
         "Practice a little every day: one concept, one tiny exercise, then explain it in your own words.",
     ),
     (
-        ["capital of india", "india capital", "india's capital"],
-        "The capital of India is New Delhi.",
-    ),
-    (
-        ["capital of the united states", "capital of usa", "us capital", "usa capital"],
-        "The capital of the United States is Washington, D.C.",
-    ),
-    (
         ["what is ai", "what's ai", "what is artificial intelligence"],
         "AI is software that learns patterns from data to help with language, vision, planning, and similar tasks.",
     ),
@@ -174,6 +137,50 @@ _FAQ: List[Tuple[List[str], str]] = [
         "TinySLM is a tiny from-scratch chat model with a short neural window plus up to 2M tokens of retrieved memory.",
     ),
 ]
+
+# country key -> (display name, capital)
+_CAPITALS = {
+    "france": ("France", "Paris"),
+    "japan": ("Japan", "Tokyo"),
+    "germany": ("Germany", "Berlin"),
+    "italy": ("Italy", "Rome"),
+    "bangladesh": ("Bangladesh", "Dhaka"),
+    "india": ("India", "New Delhi"),
+    "usa": ("the United States", "Washington, D.C."),
+    "us": ("the United States", "Washington, D.C."),
+    "united states": ("the United States", "Washington, D.C."),
+    "uk": ("the United Kingdom", "London"),
+    "united kingdom": ("the United Kingdom", "London"),
+    "canada": ("Canada", "Ottawa"),
+    "australia": ("Australia", "Canberra"),
+    "spain": ("Spain", "Madrid"),
+    "brazil": ("Brazil", "Brasília"),
+    "china": ("China", "Beijing"),
+    "pakistan": ("Pakistan", "Islamabad"),
+}
+
+
+def _capital_answer(norm: str) -> Optional[str]:
+    if "france" in norm and "japan" in norm and "capital" in norm:
+        return "France's capital is Paris. Japan's capital is Tokyo."
+    m = re.search(r"capital of (?:the )?([a-z ]+?)(?:\?|$)", norm)
+    if m:
+        key = m.group(1).strip()
+        # longest key first
+        for ck in sorted(_CAPITALS, key=len, reverse=True):
+            if key == ck or key.startswith(ck + " ") or key.endswith(" " + ck):
+                name, cap = _CAPITALS[ck]
+                return f"The capital of {name} is {cap}."
+            if key == ck:
+                name, cap = _CAPITALS[ck]
+                return f"The capital of {name} is {cap}."
+        if key in _CAPITALS:
+            name, cap = _CAPITALS[key]
+            return f"The capital of {name} is {cap}."
+    for ck, (name, cap) in _CAPITALS.items():
+        if f"{ck} capital" in norm or f"{ck}'s capital" in norm:
+            return f"The capital of {name} is {cap}."
+    return None
 
 
 _ECHO_ONLY = re.compile(
@@ -190,11 +197,9 @@ def answer_from_faq(user: str) -> Optional[str]:
     # Normalize light punctuation for matching
     norm = re.sub(r"[^\w\s\?']+", " ", u)
     norm = re.sub(r"\s+", " ", norm).strip()
-    # Both countries mentioned → prefer compare card even if cue order slips
-    if "france" in norm and "japan" in norm and "capital" in norm:
-        return (
-            "France's capital is Paris. Japan's capital is Tokyo."
-        )
+    cap = _capital_answer(norm)
+    if cap:
+        return cap
     # Exact short greetings / thanks before looser substring cards
     bare = norm.rstrip("?").strip()
     if bare in ("hello", "hi", "hey", "good morning", "good evening"):
@@ -202,13 +207,17 @@ def answer_from_faq(user: str) -> Optional[str]:
     if bare in ("thanks", "thank you", "thx"):
         return "You're welcome - happy to help anytime."
     for cues, ans in _FAQ:
-        # Skip ultra-short greeting cues for long non-greeting utterances
         for cue in cues:
-            if cue in ("hi", "hey", "hello", "hi!", "hey!", "hello!") and len(norm) > 24:
-                continue
-            if cue in norm or cue.rstrip("?") == bare:
+            c = cue.rstrip("?").strip()
+            if len(c) <= 3:
+                if not re.search(rf"(?<!\w){re.escape(c)}(?!\w)", norm):
+                    continue
+                if len(norm) > 24 and c in ("hi", "hey"):
+                    continue
                 return ans
-            if cue.endswith("?") and bare == cue.rstrip("?"):
+            if c in norm or c == bare:
+                return ans
+            if cue.endswith("?") and bare == c:
                 return ans
     if bare in ("ram",):
         return _FAQ[0][1]

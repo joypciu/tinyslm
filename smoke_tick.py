@@ -24,6 +24,18 @@ def main() -> None:
     ram = answer_from_faq("What is RAM?") or ""
     if "memory" not in ram.lower():
         fails.append("ram faq")
+    if "Ottawa" not in (answer_from_faq("What is the capital of Canada?") or ""):
+        fails.append("canada capital")
+    friend = answer_from_faq("Tell me a friendship tip.") or ""
+    if "TinySLM" in friend and "Listen" not in friend:
+        fails.append("hi matched friendship")
+    from tiny_slm.sara import select_skills
+
+    skills = " ".join(select_skills("Tell me about friendship and kindness."))
+    if "friendly_chat" in skills.lower() and "listen" not in friend.lower():
+        # skill card id text contains friendly_chat
+        if "SKILL friendly_chat" in skills:
+            fails.append("hi skill false positive")
 
     chat = TinyChat(auto_search=False)
     chat.clear_memory()
