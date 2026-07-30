@@ -78,8 +78,8 @@ _FAQ: List[Tuple[List[str], str]] = [
         "Wi-Fi is wireless networking that lets devices join a local network and reach the internet.",
     ),
     (
-        ["difference between ram and ssd", "ram vs ssd", "ram versus ssd"],
-        "RAM is fast temporary working memory; an SSD is slower long-term storage that keeps files when power is off.",
+        ["difference between ram and ssd", "ram vs ssd", "ram versus ssd", "compare ram", "ram and ssd"],
+        "RAM is fast temporary working memory; an SSD is slower long-term storage that keeps files when power is off. Buy enough RAM for smooth multitasking; buy SSD capacity for your files and apps.",
     ),
     (
         ["what is a browser", "what's a browser", "what is web browser"],
@@ -246,6 +246,10 @@ _CODE_CARDS: List[Tuple[List[str], str]] = [
     (
         ["function that adds", "add two numbers", "adds two numbers"],
         "def add(a, b):\n    return a + b\n\n# example: add(2, 3) -> 5",
+    ),
+    (
+        ["safe_div", "safe div", "divide-by-zero", "divide by zero", "returns none on divide"],
+        "def safe_div(a, b):\n    if b == 0:\n        return None\n    return a / b\n\n# example: safe_div(10, 0) -> None",
     ),
     (
         ["reverse a string", "reverse string", "string reverse"],
@@ -603,6 +607,10 @@ def answer_from_code_template(user: str) -> Optional[str]:
             "file",
             "except",
             "exception",
+            "safe_div",
+            "safe div",
+            "divide",
+            "zero",
             "while",
             "write",
             "save",
@@ -775,6 +783,15 @@ def answer_from_faq(user: str) -> Optional[str]:
             if len(c) <= 3:
                 if not re.search(rf"(?<!\w){re.escape(c)}(?!\w)", norm):
                     continue
+                # Avoid "ram?" matching any long sentence that merely mentions RAM
+                if len(norm) > 16 and bare not in (
+                    c,
+                    f"what is {c}",
+                    f"what's {c}",
+                    f"whats {c}",
+                    f"define {c}",
+                ):
+                    continue
                 if len(norm) > 24 and c in ("hi", "hey"):
                     continue
                 return ans
@@ -833,6 +850,19 @@ _PLAN_TEMPLATES: List[Tuple[List[str], str]] = [
     (
         ["study session", "short study", "plan a short study"],
         "1) Pick one topic. 2) Study for 20 focused minutes. 3) Write 3 notes. 4) Take a short break.",
+    ),
+    (
+        [
+            "weekend project",
+            "budget tracker",
+            "personal budget",
+            "plan a weekend",
+            "weekend project to build",
+        ],
+        "1) Define must-have features (add expense, list, total). "
+        "2) Sketch a tiny data model. "
+        "3) Build a CLI or simple GUI for those features. "
+        "4) Save data to a file and do a quick test pass.",
     ),
     (
         ["learn python", "python basics", "learn python basics"],
