@@ -549,10 +549,30 @@ def looks_off_topic_math(user: str, reply: str) -> bool:
     u = (user or "").lower()
     if re.search(r"\d\s*[\+\-\*\/]\s*\d", u) or "plus" in u or "minus" in u:
         return False
-    if not any(k in u for k in ("python", "ram", "cpu", "water", "france", "japan")):
+    if not any(k in u for k in ("python", "ram", "cpu", "water", "france", "japan", "sort")):
         return False
     r = (reply or "").lower()
     return bool(re.search(r"\d\s*\+\s*\d", r) and "equal" in r)
+
+
+def looks_wrong_sort_answer(user: str, reply: str) -> bool:
+    """Sort questions that drift into generic Python-definition chatter."""
+    u = (user or "").lower()
+    if "sort" not in u:
+        return False
+    r = (reply or "").lower()
+    if "sort" in r or "sorted" in r:
+        return False
+    return any(
+        p in r
+        for p in (
+            "programming language",
+            "websites, data",
+            "popular programming",
+            "ask me to plan",
+            "say search",
+        )
+    )
 
 
 def looks_low_quality(reply: str) -> bool:

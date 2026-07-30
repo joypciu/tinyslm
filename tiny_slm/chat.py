@@ -17,6 +17,7 @@ from tiny_slm.knowledge import (
     looks_like_echo,
     looks_low_quality,
     looks_off_topic_math,
+    looks_wrong_sort_answer,
     repair_truncated_greeting,
     scrub_generation,
 )
@@ -398,6 +399,7 @@ class TinyChat:
             or looks_like_echo(user, reply)
             or looks_low_quality(reply)
             or looks_off_topic_math(user, reply)
+            or looks_wrong_sort_answer(user, reply)
         ):
             faq_fallback = answer_from_faq(user)
             plan_fallback = answer_from_plan_template(user)

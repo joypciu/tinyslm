@@ -150,6 +150,14 @@ _CODE_LIGHT = """
 <bos><user>How do I read a file in Python?<eos>
 <assistant>with open('notes.txt', encoding='utf-8') as f:
     text = f.read()<eos>
+<bos><user>Sort a list in Python.<eos>
+<assistant>nums = [3, 1, 2]
+nums.sort()
+sorted(nums)<eos>
+<bos><user>How do I sort a list in Python?<eos>
+<assistant>nums = [3, 1, 2]
+nums.sort()          # in place
+sorted(nums)       # new list<eos>
 <bos><user>What is RAM?<eos>
 <assistant>RAM is short-term computer memory the CPU uses to hold running programs and data.<eos>
 """.strip()
@@ -164,7 +172,7 @@ def main() -> None:
         + ("\n" + _GREET) * 12
         + ("\n" + _PYTHON) * 14
         + ("\n" + _MATH_LIGHT) * 2
-        + ("\n" + _CODE_LIGHT) * 4
+        + ("\n" + _CODE_LIGHT) * 10
         + "\n"
     )
     path.write_text(body, encoding="utf-8")
