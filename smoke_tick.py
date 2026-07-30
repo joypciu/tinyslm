@@ -16,6 +16,13 @@ def main() -> None:
     if not looks_agentic("Plan a short study session step by step."):
         fails.append("plan not agentic")
 
+    from tiny_slm.search import needs_search
+
+    if needs_search("Please keep answers warm and brief today."):
+        fails.append("today falsely needs search")
+    if not needs_search("search the web for python release news"):
+        fails.append("explicit search not detected")
+
     if try_eval_math("What is 10 percent of 200?") != "10% of 200 equals 20.":
         fails.append("percent math")
     if "4" not in (try_eval_math("What is 2 + 2?") or ""):

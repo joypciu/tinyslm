@@ -1,9 +1,9 @@
 # 100-turn long-chat stress test
 
 - Turns: **100** in one continuous session
-- Total time: **88.55s** (avg **0.885s**/turn, p95 **2.381s**)
+- Total time: **1.49s** (avg **0.015s**/turn, p95 **0.029s**)
 - Neural block_size: **256** | prompt history window: **last 2 turns**
-- Final memory: **10,716 tokens**, **138 chunks** (0.54% of 2M cap)
+- Final memory: **11,793 tokens**, **183 chunks** (0.59% of 2M cap)
 - Needle recall — memory retrieve: **4/4**, model reply: **4/4**
 - Managed long chat: **True**
 

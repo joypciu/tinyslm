@@ -3,4 +3,5 @@
 from .config import TinySLMConfig
 from .model import TinySLM
 
-__all__ = ["TinySLM", "TinySLMConfig"]
+__version__ = "0.2.0"
+__all__ = ["TinySLM", "TinySLMConfig", "__version__"]

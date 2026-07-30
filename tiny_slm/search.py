@@ -63,7 +63,10 @@ def search_web(query: str, max_results: int = 3) -> str:
 
 
 def needs_search(user_message: str) -> bool:
-    """Heuristic: current events / factual lookup cues."""
+    """Heuristic: current events / factual lookup cues.
+
+    Avoid ultra-broad words like bare "today"/"current" that fire on normal chat.
+    """
     msg = user_message.lower()
     triggers = [
         "search",
@@ -71,18 +74,29 @@ def needs_search(user_message: str) -> bool:
         "google",
         "duckduckgo",
         "what is the latest",
-        "who is",
+        "latest news",
+        "current events",
+        "breaking news",
         "when did",
-        "news",
-        "current",
-        "today",
-        "2024",
-        "2025",
-        "2026",
+        "news about",
         "price of",
-        "weather",
+        "weather in",
+        "weather today",
+        "as of 2024",
+        "as of 2025",
+        "as of 2026",
+        "in 2024",
+        "in 2025",
+        "in 2026",
     ]
-    return any(t in msg for t in triggers)
+    if any(t in msg for t in triggers):
+        return True
+    # "who is <name>" but not "who is you" style chat
+    if re.search(r"\bwho is\b", msg) and not re.search(
+        r"\bwho is (you|this|that|it|tinyslm)\b", msg
+    ):
+        return True
+    return False
 
 
 def answer_from_search(digest: str, max_chars: int = 280) -> str:
