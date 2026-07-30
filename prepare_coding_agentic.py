@@ -158,6 +158,14 @@ sorted(nums)<eos>
 <assistant>nums = [3, 1, 2]
 nums.sort()          # in place
 sorted(nums)       # new list<eos>
+<bos><user>Write a list comprehension that squares numbers.<eos>
+<assistant>squares = [n*n for n in range(5)]  # [0, 1, 4, 9, 16]<eos>
+<bos><user>What is a dict in Python?<eos>
+<assistant>person = {'name': 'Ada', 'year': 1815}
+print(person['name'])<eos>
+<bos><user>How do I append to a list in Python?<eos>
+<assistant>nums = [1, 2]
+nums.append(3)  # [1, 2, 3]<eos>
 <bos><user>What is RAM?<eos>
 <assistant>RAM is short-term computer memory the CPU uses to hold running programs and data.<eos>
 """.strip()

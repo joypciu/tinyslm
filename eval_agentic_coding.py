@@ -17,6 +17,9 @@ CODING = [
     ("What is a variable in programming?", ["variable", "value"]),
     ("How do I read a file in Python?", ["open(", "read"]),
     ("Sort a list in Python.", ["sort", "sorted"]),
+    ("Write a list comprehension that squares numbers.", ["for", "in"]),
+    ("What is a dict in Python?", ["{", "name"]),
+    ("How do I append to a list in Python?", ["append"]),
 ]
 
 AGENTIC = [

@@ -260,8 +260,12 @@ _CODE_CARDS: List[Tuple[List[str], str]] = [
         "squares = [n*n for n in range(5)]  # [0, 1, 4, 9, 16]",
     ),
     (
-        ["dictionary", "what is a dict", "python dict"],
+        ["dictionary", "what is a dict", "python dict", "dict in python"],
         "person = {'name': 'Ada', 'year': 1815}\nprint(person['name'])",
+    ),
+    (
+        ["append to a list", "list append", "how do i append"],
+        "nums = [1, 2]\nnums.append(3)  # [1, 2, 3]",
     ),
     (
         ["try except", "exception handling", "try/except"],
@@ -333,6 +337,7 @@ def answer_from_code_template(user: str) -> Optional[str]:
             "filter",
             "lambda",
             "sort",
+            "append",
             "enumerate",
         )
     ):
