@@ -23,6 +23,8 @@ class TinySLMConfig:
     arch: str = "tinyslm_v2"
     # Neural window (RAM-bound). Long tasks use LongContextMemory up to 2M tokens.
     max_memory_tokens: int = 2_000_000
+    # Soft factor for RoPE when decoding past the last training length (1.0 = off).
+    rope_scale: float = 1.0
 
     bos_token_id: int = 1
     eos_token_id: int = 2

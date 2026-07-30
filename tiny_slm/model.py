@@ -44,10 +44,14 @@ def build_rope_cache(
     theta: float,
     device: torch.device,
     dtype: torch.dtype,
+    scale: float = 1.0,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     half = head_dim // 2
     freq = 1.0 / (theta ** (torch.arange(0, half, device=device, dtype=torch.float32) / half))
     t = torch.arange(max_seq, device=device, dtype=torch.float32)
+    if scale and scale != 1.0:
+        # NTK-ish position compression: stretch trained RoPE over a longer window.
+        t = t / float(scale)
     freqs = torch.outer(t, freq)  # (T, half)
     cos = torch.cos(freqs).to(dtype)
     sin = torch.sin(freqs).to(dtype)
@@ -221,10 +225,32 @@ class TinySLM(nn.Module):
                 self.config.rope_theta,
                 device,
                 dtype,
+                scale=getattr(self.config, "rope_scale", 1.0) or 1.0,
             )
             self._rope_cos = cos
             self._rope_sin = sin
         return self._rope_cos, self._rope_sin
+
+    def extend_block_size(self, new_block: int, rope_scale: Optional[float] = None) -> int:
+        """Safely widen the neural window (RoPE has no learned position table).
+
+        Does not change weight tensors — only config + rope cache. Prefer a short
+        resume fine-tune afterward so the model sees the longer sequences.
+        """
+        old = int(self.config.block_size)
+        new_block = int(new_block)
+        if new_block < old:
+            raise ValueError(f"Refusing to shrink block_size {old} -> {new_block}")
+        if new_block == old and rope_scale is None:
+            return old
+        self.config.block_size = new_block
+        if rope_scale is not None:
+            self.config.rope_scale = float(rope_scale)
+        # Force rope rebuild on next forward
+        self._rope_cos = torch.empty(0)
+        self._rope_sin = torch.empty(0)
+        self.config.arch = "tinyslm_v2_longctx"
+        return new_block
 
     def n_parameters(self) -> int:
         # Count unique tensors only (weight tying)

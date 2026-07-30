@@ -11,6 +11,7 @@ Thumbs.db
 # Ignore local scratch only
 checkpoints/*.tmp
 checkpoints/tinyslm_pre_*.pt
+checkpoints/backup_*/
 checkpoints/memory_store.json
 checkpoints/_smoke_memory.json
 data/*.txt

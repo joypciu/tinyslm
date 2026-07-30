@@ -99,6 +99,12 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument("--resume", type=Path, default=None, help="Resume/finetune from checkpoint")
+    parser.add_argument(
+        "--extend-block-size",
+        type=int,
+        default=0,
+        help="On resume only: safely widen RoPE block_size (e.g. 512). Never shrinks.",
+    )
     parser.add_argument("--reuse-tokenizer", action="store_true", help="Reuse checkpoints/tokenizer.json")
     args = parser.parse_args()
 
@@ -143,9 +149,14 @@ def main() -> None:
     if args.resume and Path(args.resume).exists():
         print(f"Resuming from {args.resume}")
         model, start_step = TinySLM.load_checkpoint(str(args.resume), map_location=str(device))
-        # Keep checkpoint architecture; only warn if block_size CLI differs
         config = model.config
-        if args.block_size != config.block_size:
+        # Safe context widen (RoPE-only; weights unchanged). Never from-scratch.
+        if args.extend_block_size and args.extend_block_size > config.block_size:
+            old_b = config.block_size
+            model.extend_block_size(args.extend_block_size)
+            config = model.config
+            print(f"Extended block_size {old_b} -> {config.block_size} (weights preserved)")
+        elif args.block_size != config.block_size:
             print(f"Note: keeping checkpoint block_size={config.block_size} (CLI had {args.block_size})")
         model.to(device)
     else:

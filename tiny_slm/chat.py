@@ -25,6 +25,7 @@ from tiny_slm.knowledge import (
     repair_truncated_greeting,
     scrub_generation,
 )
+from tiny_slm.long_task import looks_long_task, run_long_task
 from tiny_slm.memory import LongContextMemory, answer_from_memory, looks_like_recall
 from tiny_slm.model import TinySLM
 from tiny_slm.sara import run_sara, select_skills, try_eval_math
@@ -125,12 +126,19 @@ class TinyChat:
         return {"loaded_chunks": n, **self.memory.stats()}
 
     def _history_window(self) -> List[Tuple[str, str]]:
-        """Use up to 3 recent turns when they are short; else last 2.
+        """Use more recent turns when the neural block is wider.
 
         Keeps the neural prompt denser without growing KV past block_size.
         """
         if not self.history:
             return []
+        block = int(getattr(self.model.config, "block_size", 256) or 256)
+        if block >= 512:
+            recent = self.history[-5:]
+            approx = sum(min(len(u), 140) + min(len(a), 160) for u, a in recent)
+            if len(recent) >= 4 and approx <= 900:
+                return recent
+            return self.history[-3:]
         recent3 = self.history[-3:]
         approx = sum(min(len(u), 100) + min(len(a), 120) for u, a in recent3)
         if len(recent3) == 3 and approx <= 420:
@@ -144,13 +152,17 @@ class TinyChat:
         memory_block: str = "",
     ) -> str:
         parts = ["<bos>"]
+        block = int(getattr(self.model.config, "block_size", 256) or 256)
+        u_cap, a_cap = (140, 160) if block >= 512 else (100, 120)
+        mem_cap = 1200 if block >= 512 else 700
+        tool_cap = 1000 if block >= 512 else 700
         for u, a in self._history_window():
-            parts.append(f"<user>{u[:100]}<eos><assistant>{a[:120]}<eos>")
+            parts.append(f"<user>{u[:u_cap]}<eos><assistant>{a[:a_cap]}<eos>")
         ctx_bits = []
         if memory_block:
-            ctx_bits.append(f"[memory]\n{memory_block[:700]}\n")
+            ctx_bits.append(f"[memory]\n{memory_block[:mem_cap]}\n")
         if tool_block:
-            ctx_bits.append(f"[agent]\n{tool_block[:700]}\n")
+            ctx_bits.append(f"[agent]\n{tool_block[:tool_cap]}\n")
         prefix = "".join(ctx_bits)
         if prefix:
             parts.append(f"<user>{prefix}\nQuestion: {user}<eos><assistant>")
@@ -275,6 +287,52 @@ class TinyChat:
                 self.history.append((user, code[:280]))
                 self.memory.add_turn(user, code[:280])
                 return code, search_digest
+
+            # Long multi-step jobs: one sub-goal at a time + memory scratchpad
+            if looks_long_task(user):
+
+                def _solve(goal: str, step: str) -> str:
+                    # Prefer grounded cards for the whole goal; else short neural draft
+                    card = answer_from_code_template(goal) or answer_from_plan_template(goal)
+                    if card:
+                        return card
+                    prompt = self._build_prompt(
+                        f"{goal}\nSubstep: {step}",
+                        memory_block=memory_block[:500],
+                    )
+                    ids = self.tokenizer.encode(prompt)
+                    new_ids = self._generate(
+                        ids,
+                        max_new_tokens=min(max_new_tokens, 120),
+                        temperature=min(temperature, 0.2),
+                        top_k=min(top_k or 20, 14),
+                        repetition_penalty=repetition_penalty,
+                    )
+                    text = scrub_generation(
+                        self.tokenizer.decode(new_ids, skip_special=True).strip()
+                    )
+                    if "\n\n" in text:
+                        text = text.split("\n\n", 1)[0].strip()
+                    return text
+
+                final, lt = run_long_task(
+                    user,
+                    solve_step=_solve,
+                    memory_add=lambda t: self.memory.add_text(t, source="long_task"),
+                )
+                final = scrub_generation(final) or final
+                header = [
+                    f"[long-task] steps={len(lt.steps)} block={self.model.config.block_size}"
+                ]
+                if memory_block:
+                    header.append(
+                        f"[memory] {self.memory.stats()['tokens']:,}/{self.memory.max_tokens:,} tok store"
+                    )
+                display = "\n".join(header) + f"\n\n[model]\n{final}"
+                clean = _clean_for_history(final)
+                self.history.append((user, clean))
+                self.memory.add_turn(user, clean)
+                return display, search_digest
 
         # Auto web search for open knowledge / news before weak neural decode
         if force_search or (self.auto_search and needs_search(user)):

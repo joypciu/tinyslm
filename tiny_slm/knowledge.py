@@ -709,6 +709,7 @@ def looks_wrong_coding_answer(user: str, reply: str) -> bool:
         (("csv of names", "average score", "top 3 names"), ("csv", "average")),
         (("try/except", "valueerror", "converts user text to int"), ("try:", "except")),
         (("if/else", "if else", "what does if"), ("if", "else")),
+        (("adds two numbers", "function that adds", "def add"), ("def add", "return")),
     )
     for cues, need in rules:
         if any(c in u for c in cues) and not any(n in r for n in need):
