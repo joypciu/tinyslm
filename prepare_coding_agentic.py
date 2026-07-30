@@ -119,12 +119,26 @@ User ask: Plan a short coding practice session step by step.<eos>
 _WEAK = """
 <bos><user>Hello!<eos>
 <assistant>Hi! I'm TinySLM. How are you doing today?<eos>
+<bos><user>Hello!<eos>
+<assistant>Hi! I'm TinySLM. How are you doing today?<eos>
 <bos><user>Hi<eos>
 <assistant>Hi! I'm TinySLM. How are you doing today?<eos>
+<bos><user>Hi!<eos>
+<assistant>Hello! I'm TinySLM. How can I help?<eos>
+<bos><user>What is 2 + 2?<eos>
+<assistant>2 + 2 equals 4.<eos>
 <bos><user>What is 2 + 2?<eos>
 <assistant>2 + 2 equals 4.<eos>
 <bos><user>What is 3 + 5?<eos>
 <assistant>3 + 5 equals 8.<eos>
+<bos><user>What is 10 - 3?<eos>
+<assistant>10 - 3 equals 7.<eos>
+<bos><user>What is RAM?<eos>
+<assistant>RAM is short-term computer memory the CPU uses to hold running programs and data.<eos>
+<bos><user>What is RAM?<eos>
+<assistant>RAM is short-term computer memory the CPU uses to hold running programs and data.<eos>
+<bos><user>What is Python?<eos>
+<assistant>Python is a popular programming language used for websites, data work, automation, and learning to code.<eos>
 <bos><user>Write a Python function that adds two numbers.<eos>
 <assistant>def add(a, b):
     return a + b
@@ -132,6 +146,9 @@ _WEAK = """
 # example: add(2, 3) -> 5<eos>
 <bos><user>What is a variable in programming?<eos>
 <assistant>A variable is a named place that stores a value, e.g. score = 10 in Python.<eos>
+<bos><user>How do I read a file in Python?<eos>
+<assistant>with open('notes.txt', encoding='utf-8') as f:
+    text = f.read()<eos>
 """.strip()
 
 
