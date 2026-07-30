@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 from tiny_slm.search import answer_from_search, clean_search_query, needs_search, search_web
+from tiny_slm.swarm import looks_complex_query, run_swarm
 
 
 @dataclass
@@ -31,6 +32,9 @@ def looks_agentic(user: str) -> bool:
         "using memory",
         "from the document",
         "from context",
+        "deep dive",
+        "research",
+        "investigate",
     ]
     if any(p in u for p in phrases):
         return True
@@ -54,7 +58,9 @@ def looks_agentic(user: str) -> bool:
 def build_plan(goal: str) -> List[str]:
     g = goal.lower()
     steps = []
-    if needs_search(goal) or any(
+    if looks_complex_query(goal):
+        steps.append("swarm")
+    elif needs_search(goal) or any(
         w in g for w in ("search", "research", "find", "news", "latest", "look up", "collect")
     ):
         steps.append("search")
@@ -85,7 +91,19 @@ def run_agent_tools(
     blocks.append("Plan: " + " - ".join(state.plan))
 
     for step in state.plan:
-        if step == "search" and auto_search:
+        if step == "swarm" and auto_search:
+            try:
+                swarm = run_swarm(goal, max_workers=3, max_subgoals=3, max_pages_per_agent=2)
+                note = f"[tool:swarm] {swarm.digest[:400]}"
+                state.scratchpad.append(note)
+                blocks.append(note)
+                if swarm.answer:
+                    state.scratchpad.append(f"[tool:swarm_answer] {swarm.answer[:700]}")
+                    blocks.append(f"[tool:swarm_answer] {swarm.answer[:700]}")
+            except Exception as exc:
+                blocks.append(f"[tool:swarm] failed: {type(exc).__name__}")
+            state.steps_done += 1
+        elif step == "search" and auto_search:
             q = clean_search_query(goal)
             digest = search_web(q, max_results=4)
             note = f"[tool:search] {digest[:700]}"
@@ -104,7 +122,6 @@ def run_agent_tools(
                 blocks.append(note)
             state.steps_done += 1
         elif step == "compare":
-            # pull two keyword sides if present
             parts = re.split(r"\bvs\.?\b|\bversus\b|\bcompare\b", goal, flags=re.I)
             hint = " | ".join(p.strip() for p in parts if p.strip())[:200]
             note = f"[tool:compare] Focus sides: {hint or goal[:200]}"
@@ -115,5 +132,5 @@ def run_agent_tools(
             state.scratchpad.append("[tool:reason] synthesize findings into a clear answer")
             state.steps_done += 1
 
-    ctx = "\n".join(blocks)[:1200]
+    ctx = "\n".join(blocks)[:1800]
     return ctx, state

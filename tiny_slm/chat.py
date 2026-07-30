@@ -36,6 +36,7 @@ from tiny_slm.search import (
     search_web,
     should_prefer_web_answer,
 )
+from tiny_slm.swarm import run_swarm, should_spawn_swarm
 from tiny_slm.tokenizer import TinyTokenizer
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -287,6 +288,34 @@ class TinyChat:
                 self.history.append((user, code[:280]))
                 self.memory.add_turn(user, code[:280])
                 return code, search_digest
+
+            # Complex research/projects: parallel search+crawl+vector RAG swarm
+            if self.auto_search and should_spawn_swarm(user, has_card=False):
+                try:
+                    swarm = run_swarm(user, max_workers=3, max_subgoals=3, max_pages_per_agent=2)
+                except Exception as exc:
+                    swarm = None
+                    swarm_err = f"(swarm failed: {type(exc).__name__})"
+                else:
+                    swarm_err = ""
+                if swarm and swarm.answer and len(swarm.answer) > 60:
+                    search_digest = swarm.digest
+                    header = [
+                        f"[swarm] subgoals={len(swarm.subgoals)} workers={swarm.workers} "
+                        f"pages={swarm.pages_crawled} chunks={swarm.chunks} backend={swarm.backend}"
+                    ]
+                    display = "\n".join(header) + f"\n\n[model]\n{swarm.answer}"
+                    clean = _clean_for_history(swarm.answer[:500])
+                    self.history.append((user, clean))
+                    self.memory.add_turn(user, clean)
+                    self.memory.add_text(
+                        f"SWARM about {clean_search_query(user)[:120]}: {swarm.answer[:600]}",
+                        source="swarm",
+                    )
+                    return display, search_digest
+                elif swarm_err:
+                    # Fall through to existing search/neural paths
+                    pass
 
             # Long multi-step jobs: one sub-goal at a time + memory scratchpad
             if looks_long_task(user):
