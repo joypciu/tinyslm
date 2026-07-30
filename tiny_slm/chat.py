@@ -327,7 +327,16 @@ class TinyChat:
                     or looks_wrong_coding_answer(user, final)
                     or not any(
                         t in final.lower()
-                        for t in ("def ", "class ", "import ", "step 1", "1)", "tkinter")
+                        for t in (
+                            "def ",
+                            "class ",
+                            "import ",
+                            "step 1",
+                            "1)",
+                            "tkinter",
+                            "pygame",
+                            "pyqt",
+                        )
                     )
                 ):
                     rescue = answer_from_code_template(user) or answer_from_plan_template(user)

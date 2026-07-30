@@ -332,8 +332,42 @@ _CODE_CARDS: List[Tuple[List[str], str]] = [
         "for i, name in enumerate(['a', 'b']):\n    print(i, name)  # 0 a / 1 b",
     ),
     (
+        ["pygame", "blue screen"],
+        "import pygame\n"
+        "pygame.init()\n"
+        "screen = pygame.display.set_mode((400, 300))\n"
+        "pygame.display.set_caption('TinySLM Pygame')\n"
+        "running = True\n"
+        "while running:\n"
+        "    for event in pygame.event.get():\n"
+        "        if event.type == pygame.QUIT:\n"
+        "            running = False\n"
+        "    screen.fill((30, 90, 200))  # blue\n"
+        "    pygame.display.flip()\n"
+        "pygame.quit()\n"
+        "# Run: python app.py",
+    ),
+    (
+        ["pyqt5", "pyqt", "desktop calculator", "qt widgets"],
+        "import sys\n"
+        "from PyQt5.QtWidgets import QApplication, QWidget, QLineEdit, QPushButton, QVBoxLayout, QLabel\n\n"
+        "app = QApplication(sys.argv)\n"
+        "win = QWidget()\n"
+        "win.setWindowTitle('TinySLM Calculator')\n"
+        "a = QLineEdit(); b = QLineEdit(); out = QLabel('Result:')\n"
+        "btn = QPushButton('Add')\n"
+        "def add():\n"
+        "    try:\n"
+        "        out.setText('Result: ' + str(float(a.text()) + float(b.text())))\n"
+        "    except ValueError:\n"
+        "        out.setText('Result: bad input')\n"
+        "btn.clicked.connect(add)\n"
+        "lay = QVBoxLayout(); lay.addWidget(a); lay.addWidget(b); lay.addWidget(btn); lay.addWidget(out)\n"
+        "win.setLayout(lay); win.show(); sys.exit(app.exec_())\n"
+        "# Run: python app.py  (pip install PyQt5)",
+    ),
+    (
         [
-            "desktop",
             "tkinter",
             "gui app",
             "desktop app",
@@ -342,6 +376,7 @@ _CODE_CARDS: List[Tuple[List[str], str]] = [
             "window and a button",
             "text field",
             "messagebox",
+            "desktop",
         ],
         "import tkinter as tk\nfrom tkinter import messagebox\n\n"
         "root = tk.Tk()\n"
@@ -412,13 +447,23 @@ def answer_from_code_template(user: str) -> Optional[str]:
             "window",
             "button",
             "messagebox",
+            "pygame",
+            "pyqt",
+            "pyqt5",
+            "calculator",
         )
     ):
         return None
+    # Prefer the card with the strongest cue match (longer / more specific cues win).
+    best: Optional[tuple[int, str]] = None
     for cues, ans in _CODE_CARDS:
-        if any(c in norm for c in cues):
-            return ans
-    return None
+        hits = [c for c in cues if c in norm]
+        if not hits:
+            continue
+        score = max(len(c) for c in hits) * 10 + len(hits)
+        if best is None or score > best[0]:
+            best = (score, ans)
+    return best[1] if best else None
 
 # country key -> (display name, capital)
 _CAPITALS = {
@@ -747,6 +792,8 @@ def looks_wrong_coding_answer(user: str, reply: str) -> bool:
             ("desktop", "tkinter", "gui app", "desktop app", "desktop software"),
             ("tkinter", "mainloop", "button"),
         ),
+        (("pygame",), ("pygame", "display")),
+        (("pyqt5", "pyqt", "desktop calculator"), ("pyqt5", "qapplication", "qpushbutton")),
     )
     for cues, need in rules:
         if any(c in u for c in cues) and not any(n in r for n in need):
