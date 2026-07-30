@@ -18,8 +18,8 @@ A ~4M-param model on 2–3 GB RAM cannot fully attend over 2,000,000 tokens (KV 
 - Chat UI (Gradio) + CLI with memory save/load
 - **LongContextMemory** (~2M tokens) with BM25 retrieval + extractive recall
 - **SARA** agent loop (skills → tools → reflect) without growing params
-- FAQ / math / plan fast-paths (inference-time; avoid brittle generator misses)
-- DuckDuckGo search with extractive web snippets
+- FAQ / math / plan / code fast-paths (inference-time; avoid brittle generator misses)
+- Auto DuckDuckGo when needed + extractive multi-snippet answers (news-aware)
 - CPU-friendly (~4.4M params, `block_size=256`)
 - Regression gate: `python smoke_tick.py` / `python eval_ready.py`
 

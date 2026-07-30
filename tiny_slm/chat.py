@@ -68,6 +68,7 @@ class TinyChat:
         self.auto_search = auto_search
         self.history: List[Tuple[str, str]] = []
         self.memory = LongContextMemory(max_tokens=memory_tokens)
+        self._search_cache: dict[str, str] = {}
         self._seed_skill_cards()
 
     def _seed_skill_cards(self) -> None:
@@ -87,7 +88,20 @@ class TinyChat:
 
     def clear_memory(self) -> None:
         self.memory.clear()
+        self._search_cache.clear()
         self._seed_skill_cards()
+
+    def _cached_search(self, user: str, max_results: int = 4) -> str:
+        key = clean_search_query(user).lower()
+        if key in self._search_cache:
+            return self._search_cache[key]
+        digest = search_web(key, max_results=max_results)
+        if digest and not digest.startswith("("):
+            self._search_cache[key] = digest
+            # Bound cache size
+            if len(self._search_cache) > 32:
+                self._search_cache.pop(next(iter(self._search_cache)))
+        return digest
 
     def ingest(self, text: str, source: str = "doc") -> dict:
         added = self.memory.add_text(text, source=source)
@@ -255,7 +269,7 @@ class TinyChat:
 
         # Auto web search for open knowledge / news before weak neural decode
         if force_search or (self.auto_search and needs_search(user)):
-            search_digest = search_web(clean_search_query(user), max_results=4)
+            search_digest = self._cached_search(user, max_results=4)
             web_ans = answer_from_search(search_digest, query=user)
             if web_ans and should_prefer_web_answer(user):
                 display = f"[web]\n{search_digest}\n\n[model]\n{web_ans}"
@@ -322,7 +336,7 @@ class TinyChat:
                 code_fallback = answer_from_code_template(user)
                 web_fallback = None
                 if self.auto_search and not search_digest:
-                    search_digest = search_web(clean_search_query(user), max_results=4)
+                    search_digest = self._cached_search(user, max_results=4)
                     web_fallback = answer_from_search(search_digest, query=user)
                 reply = (
                     faq_fallback
@@ -379,7 +393,7 @@ class TinyChat:
             plan_fallback = answer_from_plan_template(user)
             code_fallback = answer_from_code_template(user)
             if not search_digest and self.auto_search:
-                search_digest = search_web(clean_search_query(user), max_results=4)
+                search_digest = self._cached_search(user, max_results=4)
             web_fallback = (
                 answer_from_search(search_digest, query=user) if search_digest else None
             )

@@ -259,6 +259,14 @@ _CODE_CARDS: List[Tuple[List[str], str]] = [
         ["while loop", "what is a while loop"],
         "n = 3\nwhile n > 0:\n    print(n)\n    n -= 1",
     ),
+    (
+        ["map function", "use map in python"],
+        "nums = [1, 2, 3]\nlist(map(lambda x: x * 2, nums))  # [2, 4, 6]",
+    ),
+    (
+        ["filter function", "use filter in python"],
+        "nums = [1, 2, 3, 4]\nlist(filter(lambda x: x % 2 == 0, nums))  # [2, 4]",
+    ),
 ]
 
 
