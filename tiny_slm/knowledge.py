@@ -216,6 +216,18 @@ _FAQ: List[Tuple[List[str], str]] = [
         ["what is overfitting", "what's overfitting"],
         "Overfitting means a model memorizes training data too well and performs worse on new data.",
     ),
+    (
+        ["what is a tokenizer", "what's a tokenizer"],
+        "A tokenizer splits text into tokens (pieces the model reads), often words or subwords.",
+    ),
+    (
+        ["what is attention", "what's attention", "self attention"],
+        "Attention lets a model weigh which parts of the input matter most when building each output.",
+    ),
+    (
+        ["what is a transformer", "what's a transformer model"],
+        "A Transformer is a neural architecture that uses attention layers to model sequences efficiently.",
+    ),
 ]
 
 _CODE_CARDS: List[Tuple[List[str], str]] = [
@@ -279,6 +291,14 @@ _CODE_CARDS: List[Tuple[List[str], str]] = [
         ["filter function", "use filter in python"],
         "nums = [1, 2, 3, 4]\nlist(filter(lambda x: x % 2 == 0, nums))  # [2, 4]",
     ),
+    (
+        ["sort a list", "sort list python"],
+        "nums = [3, 1, 2]\nnums.sort()          # in place\nsorted(nums)       # new list",
+    ),
+    (
+        ["enumerate", "use enumerate"],
+        "for i, name in enumerate(['a', 'b']):\n    print(i, name)  # 0 a / 1 b",
+    ),
 ]
 
 
@@ -312,6 +332,8 @@ def answer_from_code_template(user: str) -> Optional[str]:
             "map",
             "filter",
             "lambda",
+            "sort",
+            "enumerate",
         )
     ):
         return None

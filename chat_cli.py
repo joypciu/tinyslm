@@ -21,6 +21,7 @@ def main() -> None:
     print(
         f"TinySLM ready ({chat.model.n_parameters():,} params). "
         "Commands: quit | /clear | /memory | /save | /load | /ingest <path> | /search <q>\n"
+        "Auto web search runs when a question looks like it needs live facts.\n"
     )
 
     while True:
