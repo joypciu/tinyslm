@@ -252,6 +252,59 @@ class TinySLM(nn.Module):
         self.config.arch = "tinyslm_v2_longctx"
         return new_block
 
+    def grow_layers(self, extra: int) -> int:
+        """Append near-identity transformer blocks (expand capacity without reset).
+
+        New blocks use zero-init residual outs so the model matches prior behavior
+        at attach time. Train only the new layers (and/or LoRA) afterward.
+        LongContextMemory is unaffected.
+        """
+        extra = int(extra)
+        if extra <= 0:
+            return int(self.config.n_layer)
+        if not getattr(self.config, "base_n_layer", 0):
+            self.config.base_n_layer = int(self.config.n_layer)
+        for _ in range(extra):
+            block = Block(self.config)
+            # Near-identity residual: zero output projections
+            nn.init.zeros_(block.attn.wo.weight)
+            nn.init.zeros_(block.mlp.w2.weight)
+            self.blocks.append(block)
+        self.config.n_layer = int(self.config.n_layer) + extra
+        self.config.arch = "tinyslm_v2_expandable"
+        return int(self.config.n_layer)
+
+    def attach_adapters(self, rank: Optional[int] = None, alpha: Optional[float] = None) -> int:
+        """Inject LoRA into attn/MLP. Idempotent. Returns wrapped linear count."""
+        from tiny_slm.adapters import inject_lora
+
+        rank = int(rank if rank is not None else (self.config.adapter_rank or 8))
+        alpha = float(alpha if alpha is not None else (self.config.adapter_alpha or 16.0))
+        if rank < 1:
+            return 0
+        n = inject_lora(self, rank=rank, alpha=alpha)
+        self.config.adapter_rank = rank
+        self.config.adapter_alpha = alpha
+        if "expandable" not in self.config.arch:
+            self.config.arch = f"{self.config.arch}_lora"
+        return n
+
+    def freeze_for_continual(self, train_new_layers: bool = True) -> dict:
+        """Freeze base weights; keep LoRA (+ optional grown layers) trainable."""
+        from tiny_slm.adapters import freeze_base_parameters, unfreeze_modules, trainable_parameter_count
+
+        frozen, lora_kept = freeze_base_parameters(self)
+        grown = 0
+        base_n = int(getattr(self.config, "base_n_layer", 0) or 0)
+        if train_new_layers and base_n and len(self.blocks) > base_n:
+            grown = unfreeze_modules(self.blocks[base_n:])
+        return {
+            "frozen_params": frozen,
+            "lora_params": lora_kept,
+            "grown_layer_params": grown,
+            "trainable": trainable_parameter_count(self),
+        }
+
     def n_parameters(self) -> int:
         # Count unique tensors only (weight tying)
         return sum({id(p): p.numel() for p in self.parameters()}.values())
@@ -346,8 +399,20 @@ class TinySLM(nn.Module):
     def load_checkpoint(cls, path: str, map_location: str = "cpu") -> Tuple["TinySLM", int]:
         payload = torch.load(path, map_location=map_location, weights_only=False)
         config = TinySLMConfig.from_dict(payload["config"])
+        state = payload["model"]
+        has_lora = any("lora_" in k for k in state)
+        rank = int(getattr(config, "adapter_rank", 0) or 0)
+        alpha = float(getattr(config, "adapter_alpha", 16.0) or 16.0)
+
+        # Build plain stack first (keys like blocks.0.attn.wq.weight).
         model = cls(config)
-        model.load_state_dict(payload["model"], strict=False)
+        if has_lora:
+            # Checkpoint already uses *.base.weight + lora_* — wrap then load.
+            model.attach_adapters(rank=rank or 8, alpha=alpha)
+            model.load_state_dict(state, strict=False)
+        else:
+            model.load_state_dict(state, strict=False)
+            # Caller may attach adapters afterward for a new continual FT.
         return model, int(payload.get("step", 0))
 
 

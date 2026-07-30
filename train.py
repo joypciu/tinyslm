@@ -42,7 +42,10 @@ def load_corpus(data_dir: Path, chat_repeat: int = 40) -> str:
         text = path.read_text(encoding="utf-8")
         print(f"  + {path.name}: {path.stat().st_size:,} bytes")
         name = path.name.lower()
-        if any(
+        # HF bulk corpora: keep once (already include rehearsal). Don't x60-upsample.
+        if name.startswith("hf_") or "intelligence" in name:
+            other_parts.append(text)
+        elif any(
             k in name
             for k in (
                 "seed",
@@ -53,6 +56,7 @@ def load_corpus(data_dir: Path, chat_repeat: int = 40) -> str:
                 "basic",
                 "sara",
                 "coding",
+                "rehearsal",
             )
         ):
             chat_parts.append(text)
@@ -105,6 +109,34 @@ def main() -> None:
         default=0,
         help="On resume only: safely widen RoPE block_size (e.g. 512). Never shrinks.",
     )
+    parser.add_argument(
+        "--grow-layers",
+        type=int,
+        default=0,
+        help="On resume: append N near-identity blocks (expand capacity, keep old weights).",
+    )
+    parser.add_argument(
+        "--adapter-rank",
+        type=int,
+        default=0,
+        help="Attach LoRA of this rank (0=off). Prefer with --freeze-base for safe continual FT.",
+    )
+    parser.add_argument(
+        "--adapter-alpha",
+        type=float,
+        default=16.0,
+        help="LoRA alpha scaling (scale=alpha/rank).",
+    )
+    parser.add_argument(
+        "--freeze-base",
+        action="store_true",
+        help="Freeze base weights; train LoRA and/or newly grown layers only.",
+    )
+    parser.add_argument(
+        "--backup",
+        action="store_true",
+        help="Copy current tinyslm.pt to tinyslm_pre_expand.pt before overwriting.",
+    )
     parser.add_argument("--reuse-tokenizer", action="store_true", help="Reuse checkpoints/tokenizer.json")
     args = parser.parse_args()
 
@@ -148,6 +180,15 @@ def main() -> None:
     start_step = 0
     if args.resume and Path(args.resume).exists():
         print(f"Resuming from {args.resume}")
+        if args.backup:
+            import shutil
+            from datetime import datetime
+
+            src = Path(args.resume)
+            tag = datetime.now().strftime("%Y%m%d_%H%M%S")
+            bak = args.out_dir / f"tinyslm_pre_expand_{tag}.pt"
+            shutil.copy2(src, bak)
+            print(f"Backup: {bak}")
         model, start_step = TinySLM.load_checkpoint(str(args.resume), map_location=str(device))
         config = model.config
         # Safe context widen (RoPE-only; weights unchanged). Never from-scratch.
@@ -158,6 +199,22 @@ def main() -> None:
             print(f"Extended block_size {old_b} -> {config.block_size} (weights preserved)")
         elif args.block_size != config.block_size:
             print(f"Note: keeping checkpoint block_size={config.block_size} (CLI had {args.block_size})")
+        if args.grow_layers and args.grow_layers > 0:
+            old_l = config.n_layer
+            new_l = model.grow_layers(args.grow_layers)
+            config = model.config
+            print(f"Grew layers {old_l} -> {new_l} (old blocks frozen-capable)")
+        if args.adapter_rank and args.adapter_rank > 0:
+            n_wrap = model.attach_adapters(rank=args.adapter_rank, alpha=args.adapter_alpha)
+            config = model.config
+            print(f"Attached LoRA rank={args.adapter_rank} on {n_wrap} linears")
+        if args.freeze_base:
+            stats = model.freeze_for_continual(train_new_layers=True)
+            print(
+                f"Continual freeze: trainable={stats['trainable']:,} "
+                f"(lora={stats['lora_params']:,}, grown={stats['grown_layer_params']:,}, "
+                f"frozen={stats['frozen_params']:,})"
+            )
         model.to(device)
     else:
         config = TinySLMConfig(
@@ -194,7 +251,7 @@ def main() -> None:
         pin_memory=False,
     )
     opt = torch.optim.AdamW(
-        model.parameters(),
+        (p for p in model.parameters() if p.requires_grad),
         lr=args.lr,
         weight_decay=0.05,
         betas=(0.9, 0.95),

@@ -171,6 +171,11 @@ def needs_search(user_message: str) -> bool:
         "according to",
         "on the internet",
         "from the web",
+        "collect all",
+        "saudi league",
+        "saudi leagues",
+        "league teams",
+        "research",
     ]
     if any(t in msg for t in triggers):
         return True
@@ -317,5 +322,17 @@ def should_prefer_web_answer(user: str) -> bool:
     """True when an extractive web answer should beat a neural draft."""
     u = (user or "").lower()
     return needs_search(u) or any(
-        w in u for w in ("search", "look up", "latest", "news", "who is", "when did", "explain")
+        w in u
+        for w in (
+            "search",
+            "look up",
+            "latest",
+            "news",
+            "who is",
+            "when did",
+            "explain",
+            "collect",
+            "saudi",
+            "league",
+        )
     )

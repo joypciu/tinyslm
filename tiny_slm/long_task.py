@@ -49,6 +49,21 @@ _LONG_CUES = (
 
 def looks_long_task(user: str) -> bool:
     u = (user or "").lower()
+    # Research / structured data collection is handled by search+agent, not coding long-task.
+    if any(
+        w in u
+        for w in (
+            "saudi",
+            "collect all",
+            "research",
+            "league teams",
+            "json array",
+            "normalized_name",
+            "look up",
+            "from the web",
+        )
+    ) and any(w in u for w in ("team", "teams", "league", "leagues", "json", "search", "collect")):
+        return False
     if len(user or "") >= 180:
         return True
     if any(c in u for c in _LONG_CUES):

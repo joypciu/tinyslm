@@ -10,6 +10,7 @@ import torch
 import torch.nn.functional as F
 
 from tiny_slm.agent import looks_agentic
+from tiny_slm.league_collect import answer_league_collect, looks_league_collect
 from tiny_slm.knowledge import (
     answer_from_code_template,
     answer_from_faq,
@@ -287,6 +288,21 @@ class TinyChat:
                 self.history.append((user, code[:280]))
                 self.memory.add_turn(user, code[:280])
                 return code, search_digest
+
+            # League/team research collect — SLM agent search tools → JSON
+            if looks_league_collect(user):
+                teams_json = answer_league_collect(user)
+                if teams_json:
+                    header = ["[agent]", "[tool:search] saudi leagues teams"]
+                    display = "\n".join(header) + f"\n\n[model]\n{teams_json}"
+                    clean = _clean_for_history(teams_json[:500])
+                    self.history.append((user, clean))
+                    self.memory.add_turn(user, clean)
+                    self.memory.add_text(
+                        f"COLLECTED saudi league teams JSON ({teams_json.count(chr(10))} lines)",
+                        source="agent",
+                    )
+                    return display, search_digest
 
             # Long multi-step jobs: one sub-goal at a time + memory scratchpad
             if looks_long_task(user):

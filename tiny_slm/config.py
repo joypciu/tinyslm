@@ -25,6 +25,11 @@ class TinySLMConfig:
     max_memory_tokens: int = 2_000_000
     # Soft factor for RoPE when decoding past the last training length (1.0 = off).
     rope_scale: float = 1.0
+    # Expandable continual-learning: LoRA rank 0 = off (full FT). >0 injects adapters.
+    adapter_rank: int = 0
+    adapter_alpha: float = 16.0
+    # How many transformer blocks existed before grow_layers (0 = unknown / all original).
+    base_n_layer: int = 0
 
     bos_token_id: int = 1
     eos_token_id: int = 2

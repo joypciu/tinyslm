@@ -443,6 +443,103 @@ _CODE_CARDS: List[Tuple[List[str], str]] = [
     ),
     (
         [
+            "modernise",
+            "modernize",
+            "modern ui",
+            "modernise the ui",
+            "modernize the ui",
+            "cleaner modern layout",
+            "accent color",
+            "better typography",
+            "rounded-looking",
+            "subtle border",
+            "modern layout",
+        ],
+        "import tkinter as tk\n"
+        "from tkinter import messagebox\n\n"
+        "BG = '#12141a'\n"
+        "PANEL = '#1c2030'\n"
+        "FG = '#e8ecf4'\n"
+        "MUTED = '#9aa3b5'\n"
+        "ACCENT = '#3d8bfd'\n"
+        "ACCENT_FG = '#ffffff'\n"
+        "ENTRY_BG = '#0f1219'\n"
+        "BORDER = '#2a3144'\n\n"
+        "root = tk.Tk()\n"
+        "root.title('TinySLM Desktop Modern')\n"
+        "root.geometry('520x340')\n"
+        "root.minsize(460, 300)\n"
+        "root.configure(bg=BG)\n\n"
+        "shell = tk.Frame(root, bg=BG, padx=28, pady=22)\n"
+        "shell.pack(fill='both', expand=True)\n\n"
+        "tk.Label(\n"
+        "    shell, text='TinySLM',\n"
+        "    bg=BG, fg=FG, font=('Segoe UI', 20, 'bold'),\n"
+        ").pack(anchor='w')\n"
+        "tk.Label(\n"
+        "    shell, text='Modern desktop messenger',\n"
+        "    bg=BG, fg=MUTED, font=('Segoe UI', 10),\n"
+        ").pack(anchor='w', pady=(2, 16))\n\n"
+        "card = tk.Frame(\n"
+        "    shell, bg=PANEL, highlightbackground=BORDER,\n"
+        "    highlightthickness=1, padx=16, pady=14,\n"
+        ")\n"
+        "card.pack(fill='x')\n\n"
+        "tk.Label(\n"
+        "    card, text='Message', bg=PANEL, fg=MUTED,\n"
+        "    font=('Segoe UI', 9),\n"
+        ").pack(anchor='w')\n"
+        "entry = tk.Entry(\n"
+        "    card, font=('Segoe UI', 12), bg=ENTRY_BG, fg=FG,\n"
+        "    insertbackground=FG, relief='flat',\n"
+        "    highlightthickness=1, highlightbackground=BORDER,\n"
+        "    highlightcolor=ACCENT,\n"
+        ")\n"
+        "entry.pack(fill='x', pady=(6, 10), ipady=8)\n\n"
+        "status = tk.Label(\n"
+        "    card, text='Characters: 0', bg=PANEL, fg=MUTED,\n"
+        "    font=('Segoe UI', 9),\n"
+        ")\n"
+        "status.pack(anchor='w')\n\n"
+        "def update_status(event=None):\n"
+        "    status.config(text=f'Characters: {len(entry.get())}')\n\n"
+        "def show_message(event=None):\n"
+        "    msg = entry.get().strip() or 'Hello from TinySLM!'\n"
+        "    messagebox.showinfo('Message', msg)\n\n"
+        "def clear_text():\n"
+        "    entry.delete(0, 'end')\n"
+        "    update_status()\n\n"
+        "def quit_app():\n"
+        "    root.destroy()\n\n"
+        "entry.bind('<KeyRelease>', update_status)\n"
+        "entry.bind('<Return>', show_message)\n\n"
+        "row = tk.Frame(shell, bg=BG)\n"
+        "row.pack(anchor='w', pady=(18, 0))\n"
+        "tk.Button(\n"
+        "    row, text='Send', command=show_message,\n"
+        "    bg=ACCENT, fg=ACCENT_FG, activebackground='#5a9fff',\n"
+        "    activeforeground=ACCENT_FG, relief='flat', bd=0,\n"
+        "    font=('Segoe UI', 10, 'bold'), padx=18, pady=8,\n"
+        ").pack(side='left', padx=(0, 8))\n"
+        "tk.Button(\n"
+        "    row, text='Clear', command=clear_text,\n"
+        "    bg=PANEL, fg=FG, activebackground=BORDER,\n"
+        "    activeforeground=FG, relief='flat', bd=0,\n"
+        "    font=('Segoe UI', 10), padx=14, pady=8,\n"
+        "    highlightthickness=1, highlightbackground=BORDER,\n"
+        ").pack(side='left', padx=(0, 8))\n"
+        "tk.Button(\n"
+        "    row, text='Quit', command=quit_app,\n"
+        "    bg=PANEL, fg=MUTED, activebackground=BORDER,\n"
+        "    activeforeground=FG, relief='flat', bd=0,\n"
+        "    font=('Segoe UI', 10), padx=14, pady=8,\n"
+        "    highlightthickness=1, highlightbackground=BORDER,\n"
+        ").pack(side='left')\n"
+        "root.mainloop()\n"
+        "# Run: python app.py",
+    ),
+    (
+        [
             "tkinter",
             "gui app",
             "desktop app",
@@ -531,6 +628,13 @@ def answer_from_code_template(user: str) -> Optional[str]:
             "quit",
             "dark",
             "features",
+            "modern",
+            "modernise",
+            "modernize",
+            "ui",
+            "layout",
+            "typography",
+            "accent",
         )
     ):
         return None
@@ -550,17 +654,37 @@ def answer_from_code_template(user: str) -> Optional[str]:
             "characters were typed",
         )
     )
+    modern_ask = any(
+        f in norm
+        for f in (
+            "modernise",
+            "modernize",
+            "modern ui",
+            "modern layout",
+            "cleaner modern",
+            "accent color",
+            "better typography",
+            "rounded-looking",
+            "subtle border",
+        )
+    )
     best: Optional[tuple[int, str]] = None
     for cues, ans in _CODE_CARDS:
         hits = [c for c in cues if c in norm]
         if not hits:
             continue
         # Don't let the basic desktop demo steal feature-upgrade asks.
-        if feature_ask and "Desktop Demo" in ans and "Desktop Pro" not in ans:
+        if feature_ask and "Desktop Demo" in ans and "Desktop Pro" not in ans and "Desktop Modern" not in ans:
+            continue
+        if modern_ask and "Desktop Demo" in ans:
+            continue
+        if modern_ask and "Desktop Pro" in ans and "Desktop Modern" not in ans:
             continue
         score = max(len(c) for c in hits) * 10 + len(hits)
-        if feature_ask and "Desktop Pro" in ans:
+        if feature_ask and "Desktop Pro" in ans and not modern_ask:
             score += 500
+        if modern_ask and "Desktop Modern" in ans:
+            score += 800
         if best is None or score > best[0]:
             best = (score, ans)
     return best[1] if best else None
