@@ -528,6 +528,33 @@ def answer_from_plan_template(user: str) -> Optional[str]:
     return None
 
 
+def repair_truncated_greeting(user: str, reply: str) -> str:
+    """Tiny nets often emit only the second half of the greeting."""
+    bare = re.sub(r"[^\w\s]", "", (user or "").lower()).strip()
+    if bare not in ("hello", "hi", "hey", "good morning", "good evening"):
+        return reply
+    t = (reply or "").strip()
+    if not t:
+        return t
+    low = t.lower()
+    if "tinyslm" in low or low.startswith(("hi!", "hi ", "hello", "hey")):
+        return t
+    if any(p in low for p in ("how are you", "how can i help", "doing today")):
+        return "Hi! I'm TinySLM. " + t
+    return t
+
+
+def looks_off_topic_math(user: str, reply: str) -> bool:
+    """True when a non-math ask (e.g. What is Python?) collapses to arithmetic."""
+    u = (user or "").lower()
+    if re.search(r"\d\s*[\+\-\*\/]\s*\d", u) or "plus" in u or "minus" in u:
+        return False
+    if not any(k in u for k in ("python", "ram", "cpu", "water", "france", "japan")):
+        return False
+    r = (reply or "").lower()
+    return bool(re.search(r"\d\s*\+\s*\d", r) and "equal" in r)
+
+
 def looks_low_quality(reply: str) -> bool:
     """Heuristic for collapsed / gibberish tiny-model drafts."""
     t = (reply or "").strip()

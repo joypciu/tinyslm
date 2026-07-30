@@ -16,6 +16,8 @@ from tiny_slm.knowledge import (
     answer_from_plan_template,
     looks_like_echo,
     looks_low_quality,
+    looks_off_topic_math,
+    repair_truncated_greeting,
     scrub_generation,
 )
 from tiny_slm.memory import LongContextMemory, answer_from_memory, looks_like_recall
@@ -385,12 +387,18 @@ class TinyChat:
         )
         if "\n\n" in reply:
             reply = reply.split("\n\n", 1)[0].strip()
+        reply = repair_truncated_greeting(user, reply)
         # Prefer first complete sentence for short chit-chat
         if reply and len(reply) > 160:
             m = re.match(r"^(.+?[.!?])(\s|$)", reply, re.S)
             if m and len(m.group(1)) >= 20:
                 reply = m.group(1).strip()
-        if not reply or looks_like_echo(user, reply) or looks_low_quality(reply):
+        if (
+            not reply
+            or looks_like_echo(user, reply)
+            or looks_low_quality(reply)
+            or looks_off_topic_math(user, reply)
+        ):
             faq_fallback = answer_from_faq(user)
             plan_fallback = answer_from_plan_template(user)
             code_fallback = answer_from_code_template(user)
