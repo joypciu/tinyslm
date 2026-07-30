@@ -168,6 +168,18 @@ _FAQ: List[Tuple[List[str], str]] = [
         ["what is html", "what's html"],
         "HTML is the markup language that structures web page content with tags like h1, p, and a.",
     ),
+    (
+        ["what is css", "what's css"],
+        "CSS styles web pages - colors, layout, fonts - separate from the HTML structure.",
+    ),
+    (
+        ["what is javascript", "what's javascript", "what is js"],
+        "JavaScript is the programming language that makes web pages interactive in the browser.",
+    ),
+    (
+        ["what is linux", "what's linux"],
+        "Linux is an open-source operating system kernel used in servers, phones, and many computers.",
+    ),
 ]
 
 _CODE_CARDS: List[Tuple[List[str], str]] = [
@@ -214,6 +226,14 @@ _CODE_CARDS: List[Tuple[List[str], str]] = [
     (
         ["class in python", "what is a class", "define a class"],
         "class Dog:\n    def __init__(self, name):\n        self.name = name\n\nDog('Rex').name",
+    ),
+    (
+        ["write a file", "save a file", "write file in python"],
+        "with open('out.txt', 'w', encoding='utf-8') as f:\n    f.write('hello')",
+    ),
+    (
+        ["while loop", "what is a while loop"],
+        "n = 3\nwhile n > 0:\n    print(n)\n    n -= 1",
     ),
 ]
 

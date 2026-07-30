@@ -257,7 +257,7 @@ def answer_from_search(
         if any(key and key in re.sub(r"[^a-z0-9]+", "", u.lower()) for u in uniq):
             continue
         uniq.append(s)
-        if len(uniq) >= 3:
+        if len(uniq) >= 4:
             break
 
     if not uniq and titles:
@@ -265,20 +265,29 @@ def answer_from_search(
     if not uniq:
         return ""
 
-    # Prefer sentences that overlap query keywords when provided
-    if query:
-        q_terms = {
-            t
-            for t in re.findall(r"[a-z0-9]+", clean_search_query(query).lower())
-            if len(t) > 3
-        }
-        if q_terms:
-            uniq.sort(
-                key=lambda s: -sum(1 for t in q_terms if t in s.lower())
+    # Prefer sentences that overlap query keywords / proper names
+    q_terms = {
+        t
+        for t in re.findall(r"[a-z0-9]+", clean_search_query(query or "").lower())
+        if len(t) > 2 and t not in {"what", "who", "when", "where", "does", "about", "latest", "news"}
+    }
+    if q_terms:
+        uniq.sort(
+            key=lambda s: (
+                -sum(1 for t in q_terms if t in s.lower()),
+                -len(s),
             )
+        )
+        # If top sentence ignores the query, try pairing with a title that matches
+        top = uniq[0].lower()
+        if sum(1 for t in q_terms if t in top) == 0:
+            for t in titles:
+                if any(term in t.lower() for term in q_terms) and len(t) > 15:
+                    uniq.insert(0, t.rstrip(".") + ".")
+                    break
 
     out = f"From the web: {uniq[0]}"
-    if len(uniq) > 1:
+    if len(uniq) > 1 and uniq[1].lower() != uniq[0].lower():
         out += " Also: " + uniq[1]
     return out[:max_chars]
 
