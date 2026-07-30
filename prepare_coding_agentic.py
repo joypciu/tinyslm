@@ -145,6 +145,10 @@ _CODE_LIGHT = """
     return a + b
 
 # example: add(2, 3) -> 5<eos>
+<bos><user>How do I reverse a string in Python?<eos>
+<assistant>s = 'hello'
+reversed_s = s[::-1]  # 'olleh'
+# or: ''.join(reversed(s))<eos>
 <bos><user>What is a variable in programming?<eos>
 <assistant>A variable is a named place that stores a value, e.g. score = 10 in Python.<eos>
 <bos><user>How do I read a file in Python?<eos>
@@ -166,6 +170,8 @@ print(person['name'])<eos>
 <bos><user>How do I append to a list in Python?<eos>
 <assistant>nums = [1, 2]
 nums.append(3)  # [1, 2, 3]<eos>
+<bos><user>What is Python?<eos>
+<assistant>Python is a popular programming language used for websites, data work, automation, and learning to code.<eos>
 <bos><user>What is RAM?<eos>
 <assistant>RAM is short-term computer memory the CPU uses to hold running programs and data.<eos>
 """.strip()
@@ -177,10 +183,10 @@ def main() -> None:
     body = (
         TEXT
         + "\n"
-        + ("\n" + _GREET) * 12
-        + ("\n" + _PYTHON) * 14
-        + ("\n" + _MATH_LIGHT) * 2
-        + ("\n" + _CODE_LIGHT) * 10
+        + ("\n" + _GREET) * 14
+        + ("\n" + _PYTHON) * 16
+        + ("\n" + _MATH_LIGHT) * 3
+        + ("\n" + _CODE_LIGHT) * 14
         + "\n"
     )
     path.write_text(body, encoding="utf-8")
