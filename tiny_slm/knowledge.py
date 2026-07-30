@@ -348,6 +348,21 @@ _CODE_CARDS: List[Tuple[List[str], str]] = [
         "# Run: python app.py",
     ),
     (
+        ["notepad", "text widget", "save button writing", "desktop notepad"],
+        "import tkinter as tk\n"
+        "from tkinter import filedialog\n\n"
+        "root = tk.Tk()\n"
+        "root.title('TinySLM Notepad')\n"
+        "text = tk.Text(root, width=50, height=15)\n"
+        "text.pack(padx=8, pady=8)\n\n"
+        "def save_notes():\n"
+        "    with open('notes.txt', 'w', encoding='utf-8') as f:\n"
+        "        f.write(text.get('1.0', 'end-1c'))\n\n"
+        "tk.Button(root, text='Save', command=save_notes).pack(pady=6)\n"
+        "root.mainloop()\n"
+        "# Run: python notepad.py",
+    ),
+    (
         ["pyqt5", "pyqt", "desktop calculator", "qt widgets"],
         "import sys\n"
         "from PyQt5.QtWidgets import QApplication, QWidget, QLineEdit, QPushButton, QVBoxLayout, QLabel\n\n"
