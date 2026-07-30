@@ -156,6 +156,18 @@ _FAQ: List[Tuple[List[str], str]] = [
         ["what is git", "what's git"],
         "Git is a version-control tool that tracks changes in code so you can branch, merge, and roll back.",
     ),
+    (
+        ["what is http", "what's http"],
+        "HTTP is the protocol browsers and servers use to request and send web pages and API data.",
+    ),
+    (
+        ["what is sql", "what's sql"],
+        "SQL is a language for asking databases for data - for example SELECT name FROM users;",
+    ),
+    (
+        ["what is html", "what's html"],
+        "HTML is the markup language that structures web page content with tags like h1, p, and a.",
+    ),
 ]
 
 _CODE_CARDS: List[Tuple[List[str], str]] = [

@@ -230,6 +230,13 @@ def run_sara(
                 return state
             # Extractive web answer when search tool ran
             for note in state.agent.scratchpad:
+                if note.startswith("[tool:extract]"):
+                    web_ans = note.replace("[tool:extract]", "", 1).strip()
+                    if web_ans:
+                        state.draft = web_ans
+                        state.final = web_ans
+                        state.reflection = "extractive web after tools"
+                        return state
                 if note.startswith("[tool:search]"):
                     web_ans = answer_from_search(
                         note.replace("[tool:search]", "", 1), query=goal

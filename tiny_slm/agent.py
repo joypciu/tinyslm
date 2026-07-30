@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
-from tiny_slm.search import clean_search_query, search_web
+from tiny_slm.search import answer_from_search, clean_search_query, needs_search, search_web
 
 
 @dataclass
@@ -54,7 +54,9 @@ def looks_agentic(user: str) -> bool:
 def build_plan(goal: str) -> List[str]:
     g = goal.lower()
     steps = []
-    if any(w in g for w in ("search", "research", "find", "news", "latest", "look up")):
+    if needs_search(goal) or any(
+        w in g for w in ("search", "research", "find", "news", "latest", "look up")
+    ):
         steps.append("search")
     if any(w in g for w in ("memory", "document", "context", "earlier", "remember", "notes")):
         steps.append("memory")
@@ -85,10 +87,14 @@ def run_agent_tools(
     for step in state.plan:
         if step == "search" and auto_search:
             q = clean_search_query(goal)
-            digest = search_web(q, max_results=3)
+            digest = search_web(q, max_results=4)
             note = f"[tool:search] {digest[:700]}"
             state.scratchpad.append(note)
             blocks.append(note)
+            extracted = answer_from_search(digest, query=goal)
+            if extracted:
+                state.scratchpad.append(f"[tool:extract] {extracted}")
+                blocks.append(f"[tool:extract] {extracted}")
             state.steps_done += 1
         elif step == "memory":
             mem = memory_retrieve(goal) if callable(memory_retrieve) else ""
