@@ -254,7 +254,11 @@ def answer_from_search(
         body = " ".join(body_lines).strip()
         if title:
             titles.append(title)
-        snippets.extend(_best_sentences(body, limit=2))
+        for sent in _best_sentences(body, limit=2):
+            # Repair dangling openers missing the subject
+            if re.match(r"^(also known as|born|elected|known as)\b", sent, re.I) and title:
+                sent = f"{title.split('-')[0].strip()} {sent[0].lower() + sent[1:]}"
+            snippets.append(sent)
         if not body and title and len(title) > 20:
             snippets.append(title.rstrip(".") + ".")
 
