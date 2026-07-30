@@ -108,29 +108,30 @@ def main() -> None:
         latencies.append(dt)
         stats = chat.memory.stats()
         hist_n = len(chat.history)
-        # Approximate tokens kept in the neural prompt (last 2 turns + current)
-        recent = chat.history[-2:]
+        # Match TinyChat adaptive window (2-3 short turns)
+        recent = chat._history_window()
         neural_tok_est = approx_tokens("".join(u + a for u, a in recent) + user)
+        prompt_n = len(recent)
 
         mem_curve.append(
             {
                 "turn": turn,
                 "latency_s": round(dt, 3),
                 "history_turns_stored": hist_n,
-                "history_in_prompt": min(2, hist_n),
+                "history_in_prompt": prompt_n,
                 "memory_tokens": stats["tokens"],
                 "memory_chunks": stats["chunks"],
                 "memory_fill_pct": stats["fill_pct"],
                 "neural_token_est": neural_tok_est,
                 "neural_block_size": block,
-                "compressed": neural_tok_est > block or hist_n > 2,
+                "compressed": neural_tok_est > block or hist_n > prompt_n,
             }
         )
         if turn in NEEDLES or turn % 10 == 0:
             print(
                 f"turn {turn:3d}/{args.turns}  {dt:.2f}s  "
                 f"mem={stats['tokens']:,} tok / {stats['chunks']} chunks  "
-                f"hist={hist_n} (prompt uses last {min(2, hist_n)})  "
+                f"hist={hist_n} (prompt uses last {prompt_n})  "
                 f"neural~{neural_tok_est}/{block}",
                 flush=True,
             )

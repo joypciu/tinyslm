@@ -65,6 +65,17 @@ class TinyChat:
         self.auto_search = auto_search
         self.history: List[Tuple[str, str]] = []
         self.memory = LongContextMemory(max_tokens=memory_tokens)
+        self._seed_skill_cards()
+
+    def _seed_skill_cards(self) -> None:
+        """Seed procedural skill cards (tiny; helps agentic retrieve)."""
+        try:
+            from tiny_slm.sara import SKILL_CARDS
+
+            for sk in SKILL_CARDS:
+                self.memory.add_text(sk["card"], source="skill")
+        except Exception:
+            pass
 
     def reset(self) -> None:
         self.history.clear()
@@ -73,6 +84,7 @@ class TinyChat:
 
     def clear_memory(self) -> None:
         self.memory.clear()
+        self._seed_skill_cards()
 
     def ingest(self, text: str, source: str = "doc") -> dict:
         added = self.memory.add_text(text, source=source)
@@ -167,7 +179,7 @@ class TinyChat:
         self,
         user: str,
         max_new_tokens: int = 96,
-        temperature: float = 0.42,
+        temperature: float = 0.35,
         top_k: int = 28,
         force_search: bool = False,
         force_agent: bool = False,

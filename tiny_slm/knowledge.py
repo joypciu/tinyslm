@@ -262,6 +262,10 @@ _PLAN_TEMPLATES: List[Tuple[List[str], str]] = [
         ["summarize", "summary", "summarise"],
         "1) Name the topic in one line. 2) List 3 key points. 3) End with one takeaway sentence.",
     ),
+    (
+        ["next small step", "plan my next", "my next small step", "next step"],
+        "1) Name the outcome. 2) Do the smallest useful action for 10 minutes. 3) Check it off. 4) Pick the following step.",
+    ),
 ]
 
 
