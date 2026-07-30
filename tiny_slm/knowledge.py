@@ -572,6 +572,16 @@ def repair_short_definition(user: str, reply: str) -> str:
     return t
 
 
+def repair_coding_answer(user: str, reply: str) -> str:
+    """If a coding ask clearly missed its tokens, snap to the grounded card."""
+    if not (
+        looks_wrong_coding_answer(user, reply)
+        or looks_wrong_sort_answer(user, reply)
+    ):
+        return reply
+    return answer_from_code_template(user) or reply
+
+
 def looks_off_topic_math(user: str, reply: str) -> bool:
     """True when a non-math ask (e.g. What is Python?) collapses to arithmetic."""
     u = (user or "").lower()
