@@ -19,6 +19,7 @@ from tiny_slm.knowledge import (
     looks_off_topic_math,
     looks_wrong_coding_answer,
     looks_wrong_sort_answer,
+    repair_short_definition,
     repair_truncated_greeting,
     scrub_generation,
 )
@@ -410,6 +411,7 @@ class TinyChat:
         if "\n\n" in reply:
             reply = reply.split("\n\n", 1)[0].strip()
         reply = repair_truncated_greeting(user, reply)
+        reply = repair_short_definition(user, reply)
         # Prefer first complete sentence for short chit-chat
         if reply and len(reply) > 160:
             m = re.match(r"^(.+?[.!?])(\s|$)", reply, re.S)
@@ -441,6 +443,7 @@ class TinyChat:
             if "\n\n" in reply:
                 reply = reply.split("\n\n", 1)[0].strip()
             reply = repair_truncated_greeting(user, reply)
+            reply = repair_short_definition(user, reply)
 
         if _bad(reply):
             faq_fallback = answer_from_faq(user) if use_grounded else None

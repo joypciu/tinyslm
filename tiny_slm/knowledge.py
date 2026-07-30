@@ -550,6 +550,28 @@ def repair_truncated_greeting(user: str, reply: str) -> str:
     return "Hi! I'm TinySLM. How are you doing today?"
 
 
+def repair_short_definition(user: str, reply: str) -> str:
+    """Replace drifted answers for a few high-value definition asks."""
+    u = re.sub(r"\s+", " ", (user or "").lower()).strip()
+    t = (reply or "").strip()
+    low = t.lower()
+    if u.startswith("what is python") or u in ("what is python?", "what's python?"):
+        if "python" in low and "language" in low:
+            return t
+        return (
+            "Python is a popular programming language used for websites, "
+            "data work, automation, and learning to code."
+        )
+    if u.startswith("what is ram") or u in ("what is ram?", "what's ram?"):
+        if "memory" in low:
+            return t
+        return (
+            "RAM is short-term computer memory the CPU uses to hold "
+            "running programs and data."
+        )
+    return t
+
+
 def looks_off_topic_math(user: str, reply: str) -> bool:
     """True when a non-math ask (e.g. What is Python?) collapses to arithmetic."""
     u = (user or "").lower()
