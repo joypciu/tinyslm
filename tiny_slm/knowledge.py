@@ -581,6 +581,23 @@ def looks_wrong_sort_answer(user: str, reply: str) -> bool:
     )
 
 
+def looks_wrong_coding_answer(user: str, reply: str) -> bool:
+    """True when a coding ask is missing its key tokens (drift/gibberish)."""
+    u = (user or "").lower()
+    r = (reply or "").lower()
+    rules = (
+        (("reverse",), ("[::-1]", "reversed")),
+        (("append",), ("append",)),
+        (("dict", "dictionary"), ("{",)),
+        (("list comprehension", "comprehension that square"), ("for", "in")),
+        (("read a file", "read file"), ("open(", "read")),
+    )
+    for cues, need in rules:
+        if any(c in u for c in cues) and not any(n in r for n in need):
+            return True
+    return False
+
+
 def looks_low_quality(reply: str) -> bool:
     """Heuristic for collapsed / gibberish tiny-model drafts."""
     t = (reply or "").strip()

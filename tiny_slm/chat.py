@@ -17,6 +17,7 @@ from tiny_slm.knowledge import (
     looks_like_echo,
     looks_low_quality,
     looks_off_topic_math,
+    looks_wrong_coding_answer,
     looks_wrong_sort_answer,
     repair_truncated_greeting,
     scrub_generation,
@@ -376,11 +377,31 @@ class TinyChat:
             tool_block = f"[tool:search] {search_digest[:600]}"
         prompt = self._build_prompt(user, tool_block=tool_block, memory_block=memory_block)
         ids = self.tokenizer.encode(prompt)
+        ulow = (user or "").lower()
+        codeish = any(
+            w in ulow
+            for w in (
+                "python",
+                "function",
+                "list",
+                "sort",
+                "append",
+                "dict",
+                "comprehension",
+                "reverse",
+                "string",
+                "file",
+                "loop",
+                "variable",
+            )
+        )
+        gen_temp = min(temperature, 0.18) if codeish else temperature
+        gen_topk = min(top_k or 28, 14) if codeish else top_k
         new_ids = self._generate(
             ids,
             max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_k=top_k,
+            temperature=gen_temp,
+            top_k=gen_topk,
             repetition_penalty=repetition_penalty,
         )
         reply = scrub_generation(
@@ -402,6 +423,7 @@ class TinyChat:
                 or looks_low_quality(r)
                 or looks_off_topic_math(user, r)
                 or looks_wrong_sort_answer(user, r)
+                or looks_wrong_coding_answer(user, r)
             )
 
         if _bad(reply) and not use_grounded:
@@ -409,8 +431,8 @@ class TinyChat:
             retry_ids = self._generate(
                 ids,
                 max_new_tokens=max_new_tokens,
-                temperature=min(temperature, 0.15),
-                top_k=min(top_k or 20, 12),
+                temperature=min(gen_temp, 0.12),
+                top_k=min(gen_topk or 20, 10),
                 repetition_penalty=repetition_penalty,
             )
             reply = scrub_generation(
