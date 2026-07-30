@@ -318,6 +318,11 @@ class TinyChat:
         )
         if "\n\n" in reply:
             reply = reply.split("\n\n", 1)[0].strip()
+        # Prefer first complete sentence for short chit-chat
+        if reply and len(reply) > 160:
+            m = re.match(r"^(.+?[.!?])(\s|$)", reply, re.S)
+            if m and len(m.group(1)) >= 20:
+                reply = m.group(1).strip()
         if not reply or looks_like_echo(user, reply):
             faq_fallback = answer_from_faq(user)
             web_fallback = answer_from_search(search_digest or "") if search_digest else None

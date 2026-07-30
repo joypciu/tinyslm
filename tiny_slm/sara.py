@@ -93,9 +93,9 @@ def select_skills(goal: str, max_skills: int = 2) -> List[str]:
 def try_eval_math(text: str) -> Optional[str]:
     """Symbolic check for simple a ±*/ b questions and light percent asks."""
     t = (text or "").lower()
-    pct = re.search(r"what\s+is\s+(\d+)\s*%\s*of\s+(\d+)", t)
+    pct = re.search(r"what\s+is\s+(\d+)\s*(?:%|percent|pct)\s*of\s+(\d+)", t)
     if not pct:
-        pct = re.search(r"(\d+)\s*%\s*of\s+(\d+)", t)
+        pct = re.search(r"(\d+)\s*(?:%|percent|pct)\s*of\s+(\d+)", t)
     if pct:
         a, b = int(pct.group(1)), int(pct.group(2))
         return f"{a}% of {b} equals {(a * b) // 100}."
