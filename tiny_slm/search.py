@@ -255,9 +255,18 @@ def answer_from_search(
         if title:
             titles.append(title)
         for sent in _best_sentences(body, limit=2):
-            # Repair dangling openers missing the subject
-            if re.match(r"^(also known as|born|elected|known as)\b", sent, re.I) and title:
-                sent = f"{title.split('-')[0].strip()} {sent[0].lower() + sent[1:]}"
+            # "Also known as Ada Lovelace, was an English..." -> "Ada Lovelace was..."
+            m = re.match(
+                r"^(?:also )?known as\s+(.+?),\s*(was|is|were)\s+(.+)$",
+                sent,
+                re.I,
+            )
+            if m:
+                sent = f"{m.group(1).strip()} {m.group(2)} {m.group(3)}"
+            elif re.match(r"^(born|elected)\b", sent, re.I) and title:
+                subj = title.split("-")[0].strip()
+                if subj.lower() not in sent.lower():
+                    sent = f"{subj} {sent[0].lower() + sent[1:]}"
             snippets.append(sent)
         if not body and title and len(title) > 20:
             snippets.append(title.rstrip(".") + ".")
