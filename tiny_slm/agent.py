@@ -93,7 +93,7 @@ def run_agent_tools(
     for step in state.plan:
         if step == "swarm" and auto_search:
             try:
-                swarm = run_swarm(goal, max_workers=3, max_subgoals=3, max_pages_per_agent=2)
+                swarm = run_swarm(goal, max_workers=4, max_subgoals=5, max_pages_per_agent=2)
                 note = f"[tool:swarm] {swarm.digest[:400]}"
                 state.scratchpad.append(note)
                 blocks.append(note)

@@ -292,7 +292,7 @@ class TinyChat:
             # Complex research/projects: parallel search+crawl+vector RAG swarm
             if self.auto_search and should_spawn_swarm(user, has_card=False):
                 try:
-                    swarm = run_swarm(user, max_workers=3, max_subgoals=3, max_pages_per_agent=2)
+                    swarm = run_swarm(user, max_workers=4, max_subgoals=5, max_pages_per_agent=2)
                 except Exception as exc:
                     swarm = None
                     swarm_err = f"(swarm failed: {type(exc).__name__})"

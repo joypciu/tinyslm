@@ -55,7 +55,7 @@ def run_swarm(
     goal: str,
     *,
     max_workers: int = 3,
-    max_subgoals: int = 3,
+    max_subgoals: int = 5,
     max_pages_per_agent: int = 2,
     use_cache: bool = True,
 ) -> SwarmResult:

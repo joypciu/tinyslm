@@ -23,6 +23,24 @@ def main() -> None:
     assert len(subs) >= 2
     assert any("redis" in s.lower() or "Redis" in s or "trade" in s.lower() for s in subs)
 
+    # Numbered facets must win over embedded "vs" lists
+    numbered = decompose(
+        "Design a SaaS notes API. Cover: 1) monolith vs modular monolith vs microservices "
+        "2) JWT vs session auth and tenancy 3) recommended Python stack 4) two-week roadmap 5) risks"
+    )
+    assert len(numbered) >= 4
+    assert all("Deep dive" not in s for s in numbered)
+    joined = " ".join(numbered).lower()
+    assert "roadmap" in joined or "stack" in joined or "jwt" in joined
+
+    # Multi-way vs inside a long brief must NOT become nonsense A-vs-B
+    multi = decompose(
+        "Deep dive research: design a production multi-tenant SaaS note-taking API for a small team. "
+        "Cover architecture tradeoffs monolith vs modular monolith vs microservices, auth, stack, roadmap."
+    )
+    assert len(multi) >= 3
+    assert not any("Deep dive research" in s and "vs" in s.lower() for s in multi)
+
     html = "<html><head><script>x()</script></head><body><p>Hello swarm world. " * 5 + "</p></body></html>"
     text = _strip_html(html)
     assert "Hello swarm" in text
