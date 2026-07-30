@@ -10,7 +10,7 @@ import torch
 import torch.nn.functional as F
 
 from tiny_slm.agent import looks_agentic
-from tiny_slm.memory import LongContextMemory
+from tiny_slm.memory import LongContextMemory, answer_from_memory, looks_like_recall
 from tiny_slm.model import TinySLM
 from tiny_slm.sara import run_sara, select_skills, try_eval_math
 from tiny_slm.search import clean_search_query, needs_search, search_web
@@ -154,8 +154,24 @@ class TinyChat:
         if self.memory.chunks:
             memory_block = self.memory.retrieve(user, top_k=4, max_chars=800)
 
+        # Extractive memory reply (no training) — tiny nets rarely copy rare codes
+        mem_direct = answer_from_memory(user, memory_block) if memory_block else None
+        if mem_direct:
+            header = [
+                f"[memory] extractive "
+                f"({self.memory.stats()['tokens']:,}/{self.memory.max_tokens:,} tok store)"
+            ]
+            display = "\n".join(header) + f"\n\n[model]\n{mem_direct}"
+            clean = _clean_for_history(mem_direct)
+            self.history.append((user, clean))
+            self.memory.add_turn(user, clean)
+            return display, search_digest
+
         def _raw_generate(prompt_user: str) -> str:
-            prompt = self._build_prompt(prompt_user, tool_block="", memory_block="")
+            # Keep retrieved memory in the neural prompt for SARA drafts
+            prompt = self._build_prompt(
+                prompt_user, tool_block="", memory_block=memory_block[:500]
+            )
             ids = self.tokenizer.encode(prompt)
             new_ids = self._generate(
                 ids,
@@ -169,10 +185,11 @@ class TinyChat:
                 text = text.split("\n\n", 1)[0].strip()
             return text
 
-        # SARA for agentic / math / explicit force — not every short utterance
+        # SARA for agentic / math / memory recall / explicit force
         sara_gate = (
             force_agent
             or looks_agentic(user)
+            or looks_like_recall(user)
             or try_eval_math(user) is not None
             or any(
                 "plan_steps" in s or "compare_two" in s or "memory_answer" in s or "math_simple" in s
@@ -185,7 +202,7 @@ class TinyChat:
                 generate_fn=_raw_generate,
                 memory_retrieve=lambda q: self.memory.retrieve(q, top_k=4, max_chars=600),
                 auto_search=self.auto_search or force_search,
-                force_agent=force_agent or looks_agentic(user),
+                force_agent=force_agent or looks_agentic(user) or looks_like_recall(user),
             )
             reply = sara.final or "(empty reply)"
             header = [

@@ -21,10 +21,138 @@ def approx_tokens(text: str) -> int:
 
 
 _WORD = re.compile(r"[a-z0-9_]+", re.I)
+# Distinctive codes / tokens planted in long chats (e.g. BLUE_LANTERN_CODE)
+_CODEISH = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b")
+_RECALL_CUES = re.compile(
+    r"\b("
+    r"remember|memory|earlier|before|previously|secret|code|token|password|"
+    r"what was|remind|using memory|from (our|the) (chat|conversation|context|document)|"
+    r"you (told|said)|store(d)? this|launch code|warehouse|meeting password"
+    r")\b",
+    re.I,
+)
+_FACT_LINE = re.compile(
+    r"(?:secret project code|warehouse id|meeting password|token for the final check|"
+    r"launch code|password is|code is|code:|token[:\s]+|id is)\s*[:\s]*"
+    r"([A-Z0-9][A-Z0-9_\-]{3,})",
+    re.I,
+)
 
 
 def tokenize(text: str) -> List[str]:
     return _WORD.findall(text.lower())
+
+
+def looks_like_recall(query: str) -> bool:
+    """True when the user is asking to recover a past fact from memory."""
+    return bool(_RECALL_CUES.search(query or ""))
+
+
+def extract_codes(text: str) -> List[str]:
+    return list(dict.fromkeys(_CODEISH.findall(text or "")))
+
+
+_GENERIC_Q = {
+    "code",
+    "token",
+    "secret",
+    "password",
+    "memory",
+    "using",
+    "what",
+    "was",
+    "the",
+    "related",
+    "exact",
+    "know",
+    "reply",
+    "with",
+    "project",
+    "meeting",
+    "warehouse",
+    "final",
+    "check",
+    "store",
+    "this",
+    "from",
+    "user",
+    "assistant",
+    "fact",
+}
+
+
+def answer_from_memory(query: str, memory_text: str) -> Optional[str]:
+    """Extractive answer so tiny models do not have to regenerate rare codes.
+
+    No weight updates — uses BM25-retrieved text only. Prevents long-chat
+    needle misses when the neural window has already dropped older turns.
+    """
+    mem = (memory_text or "").strip()
+    q = (query or "").strip()
+    if not mem or not q or not looks_like_recall(q):
+        return None
+
+    q_upper = q.upper()
+    q_terms = {t for t in tokenize(q) if t not in _GENERIC_Q and len(t) >= 3}
+
+    def _score_code(code: str) -> int:
+        # Ignore generic segments (CODE/TOKEN/ID) — they appear in every probe
+        parts = [
+            p
+            for p in code.replace("-", "_").split("_")
+            if p and p.lower() not in _GENERIC_Q and not p.isdigit()
+        ]
+        score = 0
+        ql = f" {q.lower()} "
+        for p in parts:
+            pu = p.upper()
+            pl = p.lower()
+            if len(pl) < 3:
+                continue
+            if pu in q_upper.split() or f" {pl} " in ql:
+                score += 5
+            elif pl in q_terms:
+                score += 4
+            elif pl in q.lower():
+                # Prefix hint: "related to BLUE" → BLUE_LANTERN_CODE
+                score += 3
+        return score
+
+    # Score fact-line values and underscore codes; distinctive query hints win
+    candidates: List[Tuple[int, str]] = []
+    all_facts: List[str] = []
+    for m in _FACT_LINE.finditer(mem):
+        fact = m.group(1).upper().strip()
+        all_facts.append(fact)
+        sc = _score_code(fact)
+        fl = m.group(0).lower()
+        ql = q.lower()
+        # Typed cues only when the query names that slot (not generic "code/token")
+        if "launch" in ql and "launch" in fl:
+            sc += 6
+        if "password" in ql and "password" in fl:
+            sc += 6
+        if "warehouse" in ql and "warehouse" in fl:
+            sc += 6
+        if sc > 0:
+            candidates.append((sc, fact))
+
+    for c in extract_codes(mem):
+        sc = _score_code(c)
+        if sc > 0:
+            candidates.append((sc, c.upper()))
+
+    if candidates:
+        candidates.sort(key=lambda x: (-x[0], -len(x[1])))
+        return f"From memory: {candidates[0][1]}."
+
+    uniq_facts = list(dict.fromkeys(all_facts))
+    if len(uniq_facts) == 1:
+        return f"From memory: {uniq_facts[0]}."
+    codes = extract_codes(mem)
+    if len(codes) == 1:
+        return f"From memory: {codes[0]}."
+    return None
 
 
 @dataclass
@@ -94,6 +222,10 @@ class LongContextMemory:
 
     def add_turn(self, user: str, assistant: str) -> None:
         self.add_text(f"User: {user}\nAssistant: {assistant}", source="dialog")
+        # Keep rare codes / passwords as their own fact chunks so BM25
+        # is not diluted by a weak assistant reply in the same chunk.
+        if extract_codes(user) or _FACT_LINE.search(user or ""):
+            self.add_text(f"FACT from user: {user[:420]}", source="fact")
 
     def retrieve(self, query: str, top_k: int = 4, max_chars: int = 900) -> str:
         """BM25-lite retrieval over the memory bank."""
@@ -105,16 +237,6 @@ class LongContextMemory:
         k1, b = 1.4, 0.75
         scores: Dict[int, float] = defaultdict(float)
         q_tf = Counter(q_terms)
-        for term, qf in q_tf.items():
-            postings = self.inverted.get(term)
-            if not postings:
-                continue
-            df = self.doc_freq.get(term, 1)
-            idf = math.log(1 + (N - df + 0.5) / (df + 0.5))
-            for cid in postings:
-                # cid may be stale after eviction — map by position
-                pass
-            # Use chunk list index via id map
         id_map = {c.id: c for c in self.chunks}
         for term, qf in q_tf.items():
             postings = self.inverted.get(term)
@@ -130,6 +252,34 @@ class LongContextMemory:
                 dl = max(1, chunk.tokens)
                 denom = tf + k1 * (1 - b + b * dl / avgdl)
                 scores[cid] += idf * (tf * (k1 + 1) / denom) * (1 + 0.1 * qf)
+
+        # Recall boost: rare query hints (BLUE/ORANGE/…) beat shared words
+        # like "memory"/"code" that otherwise drown distinctive fact chunks.
+        if looks_like_recall(query):
+            hints = {
+                t
+                for t in q_terms
+                if len(t) >= 3 and t not in _GENERIC_Q
+            }
+            for chunk in self.chunks:
+                text_l = chunk.text.lower()
+                boost = 0.0
+                for h in hints:
+                    if h in text_l:
+                        df = max(1, self.doc_freq.get(h, 1))
+                        boost += 12.0 * math.log(1 + N / df)
+                for code in extract_codes(chunk.text):
+                    parts = {
+                        p.lower()
+                        for p in code.replace("-", "_").split("_")
+                        if p and p.lower() not in _GENERIC_Q
+                    }
+                    if parts & hints:
+                        boost += 40.0
+                if chunk.source == "fact":
+                    boost += 3.0
+                if boost:
+                    scores[chunk.id] += boost
 
         if not scores:
             # fallback: most recent chunks

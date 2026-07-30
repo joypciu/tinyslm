@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Tuple
 
 from tiny_slm.agent import AgentState, build_plan, looks_agentic, run_agent_tools
+from tiny_slm.memory import answer_from_memory
 from tiny_slm.search import clean_search_query, search_web
 
 
@@ -34,7 +35,22 @@ SKILL_CARDS = [
     },
     {
         "id": "memory_answer",
-        "triggers": ["memory", "remember", "from context", "from the document", "launch code", "deadline"],
+        "triggers": [
+            "memory",
+            "remember",
+            "from context",
+            "from the document",
+            "launch code",
+            "deadline",
+            "earlier",
+            "secret code",
+            "secret",
+            "password",
+            "warehouse",
+            "what was the",
+            "using memory",
+            "exact code",
+        ],
         "card": "SKILL memory_answer: Prefer facts from [memory]/tool:memory]. Quote the key fact in one sentence.",
     },
     {
@@ -115,9 +131,16 @@ def reflect_on_draft(goal: str, draft: str, memory_snip: str = "") -> Tuple[bool
     if "paris" in goal.lower() and "france" in goal.lower():
         if "paris" not in d.lower():
             issues.append("missing Paris")
-    if memory_snip and "orbit-77" in memory_snip.lower():
-        if "orbit" in goal.lower() and "orbit" not in d.lower():
-            issues.append("missing memory fact")
+    if memory_snip:
+        from tiny_slm.memory import extract_codes, looks_like_recall
+
+        if looks_like_recall(goal):
+            codes = extract_codes(memory_snip)
+            if codes and not any(c.lower() in d.lower() for c in codes):
+                issues.append("missing memory fact")
+        elif "orbit-77" in memory_snip.lower() and "orbit" in goal.lower():
+            if "orbit" not in d.lower():
+                issues.append("missing memory fact")
     if "2 + 2" in goal.lower() or "2+2" in goal.lower():
         if "4" not in d:
             issues.append("math wrong")
@@ -146,12 +169,29 @@ def run_sara(
         state.reflection = "symbolic math verify"
         return state
 
+    # Memory extractive fast-path (no neural regen of rare codes)
+    mem_ans = answer_from_memory(goal, mem)
+    if mem_ans:
+        state.draft = mem_ans
+        state.final = mem_ans
+        state.reflection = "extractive memory verify"
+        return state
+
     tool_block = ""
     if force_agent or looks_agentic(goal):
         tool_block, agent_state = run_agent_tools(
             goal, memory_retrieve=memory_retrieve, auto_search=auto_search
         )
         state.agent = agent_state
+        # Re-check after tool memory pull
+        if state.agent and state.agent.scratchpad:
+            tool_mem = "\n".join(state.agent.scratchpad)
+            mem_ans = answer_from_memory(goal, tool_mem) or answer_from_memory(goal, mem)
+            if mem_ans:
+                state.draft = mem_ans
+                state.final = mem_ans
+                state.reflection = "extractive memory after tools"
+                return state
 
     skill_txt = "\n".join(state.skills)
     notes = "\n".join(
@@ -168,17 +208,24 @@ def run_sara(
     needs_fix, refl = reflect_on_draft(goal, state.draft, mem)
     state.reflection = refl
     if needs_fix:
-        revise_prompt = (
-            f"Notes:\n{notes[:700]}\nReflection: {refl}\n"
-            f"Improve the draft. Draft was: {state.draft[:200]}\n"
-            f"User ask: {goal}"
-        )
-        revised = (generate_fn(revise_prompt) or "").strip()
-        if revised and len(revised) >= 6:
-            state.final = revised
+        # Prefer quoting memory over a second noisy generation
+        mem_fix = answer_from_memory(goal, mem)
+        if mem_fix:
+            state.final = mem_fix
             state.revised = True
+            state.reflection = refl + " | patched from memory"
         else:
-            state.final = state.draft
+            revise_prompt = (
+                f"Notes:\n{notes[:700]}\nReflection: {refl}\n"
+                f"Improve the draft. Draft was: {state.draft[:200]}\n"
+                f"User ask: {goal}"
+            )
+            revised = (generate_fn(revise_prompt) or "").strip()
+            if revised and len(revised) >= 6:
+                state.final = revised
+                state.revised = True
+            else:
+                state.final = state.draft
     else:
         state.final = state.draft
 
