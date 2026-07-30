@@ -363,6 +363,20 @@ _CODE_CARDS: List[Tuple[List[str], str]] = [
         "# Run: python notepad.py",
     ),
     (
+        ["canvas", "color picker", "fills it red", "fill it red"],
+        "import tkinter as tk\n\n"
+        "root = tk.Tk()\n"
+        "root.title('TinySLM Canvas')\n"
+        "canvas = tk.Canvas(root, width=240, height=140, bg='white')\n"
+        "canvas.pack(padx=8, pady=8)\n\n"
+        "def paint_red():\n"
+        "    canvas.delete('all')\n"
+        "    canvas.create_rectangle(0, 0, 240, 140, fill='red', outline='')\n\n"
+        "tk.Button(root, text='Fill red', command=paint_red).pack(pady=6)\n"
+        "root.mainloop()\n"
+        "# Run: python canvas_demo.py",
+    ),
+    (
         ["pyqt5", "pyqt", "desktop calculator", "qt widgets"],
         "import sys\n"
         "from PyQt5.QtWidgets import QApplication, QWidget, QLineEdit, QPushButton, QVBoxLayout, QLabel\n\n"
