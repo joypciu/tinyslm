@@ -276,6 +276,26 @@ _CODE_CARDS: List[Tuple[List[str], str]] = [
         "for i, x in enumerate(['a', 'b']):\n    print(i, x)",
     ),
     (
+        ["word_count", "word count", "mapping each word"],
+        "def word_count(text):\n    counts = {}\n    for w in text.split():\n        counts[w] = counts.get(w, 0) + 1\n    return counts\n\n# example: word_count('a a b') -> {'a': 2, 'b': 1}",
+    ),
+    (
+        ["bankaccount", "bank account", "deposit(amount)", "withdraw(amount)"],
+        "class BankAccount:\n    def __init__(self, balance=0):\n        self.balance = balance\n    def deposit(self, amount):\n        self.balance += amount\n    def withdraw(self, amount):\n        if amount > self.balance:\n            raise ValueError('overdraft')\n        self.balance -= amount",
+    ),
+    (
+        ["fibonacci", "fib(n)", "recursive python function fib"],
+        "def fib(n):\n    if n <= 1:\n        return n\n    return fib(n - 1) + fib(n - 2)\n\n# fib(0)=0, fib(1)=1, fib(6)=8",
+    ),
+    (
+        ["unique sorted lines", "input.txt", "output.txt", "skips blanks"],
+        "lines = []\nwith open('input.txt', encoding='utf-8') as f:\n    for line in f:\n        s = line.strip()\n        if s:\n            lines.append(s)\nwith open('output.txt', 'w', encoding='utf-8') as f:\n    for s in sorted(set(lines)):\n        f.write(s + '\\n')",
+    ),
+    (
+        ["csv of names", "average score", "top 3 names"],
+        "import csv\nrows = list(csv.DictReader(open('scores.csv', encoding='utf-8')))\navg = sum(float(r['score']) for r in rows) / len(rows)\ntop = sorted(rows, key=lambda r: float(r['score']), reverse=True)[:3]\nprint('average', avg)\nprint([r['name'] for r in top])",
+    ),
+    (
         ["try except", "exception handling", "try/except"],
         "try:\n    n = int(text)\nexcept ValueError:\n    print('not a number')",
     ),
@@ -347,6 +367,18 @@ def answer_from_code_template(user: str) -> Optional[str]:
             "sort",
             "append",
             "enumerate",
+            "word_count",
+            "word count",
+            "fibonacci",
+            "fib",
+            "bankaccount",
+            "bank account",
+            "deposit",
+            "withdraw",
+            "csv",
+            "input.txt",
+            "output.txt",
+            "recursive",
         )
     ):
         return None
@@ -493,12 +525,24 @@ _PLAN_TEMPLATES: List[Tuple[List[str], str]] = [
         "Step 1: install Python. Step 2: learn variables and print. Step 3: practice if/else. Step 4: write a tiny script.",
     ),
     (
-        ["debug", "debug a", "fix a bug", "python script"],
+        ["debug", "debug a", "fix a bug", "debug a small python"],
         "Step 1: read the error message. Step 2: print key variables. Step 3: fix one bug. Step 4: rerun the script.",
     ),
     (
         ["coding practice", "practice session", "coding session"],
         "1) Pick one small function. 2) Write tests for two cases. 3) Implement it. 4) Refactor names.",
+    ),
+    (
+        ["todo list app", "build a todo", "todo list"],
+        "1) Define a task list. 2) Add add/complete/list commands. 3) Save tasks to a file. 4) Test the happy path.",
+    ),
+    (
+        ["renames files", "rename files by date", "cli tool that renames"],
+        "Step 1: list files in the folder. Step 2: parse each file date. Step 3: build the new name. Step 4: rename safely with a dry-run first.",
+    ),
+    (
+        ["compare python and javascript", "python and javascript", "python vs javascript"],
+        "Python is often simpler for beginners and data scripts. JavaScript runs in browsers and powers interactive web pages. Start with the one matching your first project.",
     ),
     (
         ["homework", "small homework", "plan homework"],
@@ -531,7 +575,7 @@ def answer_from_plan_template(user: str) -> Optional[str]:
     """Deterministic short plans for common agentic asks (no training)."""
     norm = re.sub(r"[^\w\s\?']+", " ", (user or "").lower())
     norm = re.sub(r"\s+", " ", norm).strip()
-    if not any(w in norm for w in ("plan", "step", "break down", "steps")):
+    if not any(w in norm for w in ("plan", "step", "break down", "steps", "compare")):
         # still allow explicit learn-python style tasks
         if "python" not in norm:
             return None
