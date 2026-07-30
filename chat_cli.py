@@ -17,7 +17,10 @@ def main() -> None:
     args = parser.parse_args()
 
     chat = TinyChat(ckpt_path=args.ckpt, tok_path=args.tok)
-    print(f"TinySLM ready ({chat.model.n_parameters():,} params). Type 'quit' to exit.\n")
+    print(
+        f"TinySLM ready ({chat.model.n_parameters():,} params). "
+        "Commands: quit | /clear | /memory | /search <q>\n"
+    )
 
     while True:
         try:
@@ -31,7 +34,16 @@ def main() -> None:
             break
         if user.lower() in {"clear", "/clear"}:
             chat.reset()
-            print("(history cleared)")
+            chat.clear_memory()
+            print("(history + memory cleared; skills re-seeded)")
+            continue
+        if user.lower() in {"/memory", "memory"}:
+            st = chat.memory.stats()
+            print(
+                f"(memory {st['tokens']:,}/{st['max_tokens']:,} tok, "
+                f"{st['chunks']} chunks, {st['fill_pct']}% full; "
+                f"history turns={len(chat.history)})"
+            )
             continue
         force = user.lower().startswith("/search ")
         if force:

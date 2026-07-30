@@ -149,6 +149,14 @@ _FAQ: List[Tuple[List[str], str]] = [
         ["what is a laptop", "what's a laptop"],
         "A laptop is a portable computer with a screen, keyboard, battery, CPU, and memory in one device.",
     ),
+    (
+        ["what is python", "what's python", "whats python"],
+        "Python is a popular programming language used for websites, data work, automation, and learning to code.",
+    ),
+    (
+        ["how to learn", "how do i learn", "best way to learn"],
+        "Practice a little every day: one concept, one tiny exercise, then explain it in your own words.",
+    ),
 ]
 
 

@@ -278,24 +278,48 @@ class LongContextMemory:
                         boost += 40.0
                 if chunk.source == "fact":
                     boost += 3.0
+                if chunk.source == "skill":
+                    # Skills compete with "memory"/"code" terms — keep them down
+                    # unless the user is clearly asking for procedure.
+                    boost -= 25.0
                 if boost:
                     scores[chunk.id] += boost
 
+        # Demote skill cards on ordinary / recall queries so FAQ facts win
+        want_skills = any(
+            w in (query or "").lower()
+            for w in ("skill", "plan", "step by step", "compare", "break down")
+        )
+        if not want_skills:
+            for chunk in self.chunks:
+                if chunk.source == "skill" and chunk.id in scores:
+                    scores[chunk.id] *= 0.05
+
         if not scores:
-            # fallback: most recent chunks
-            recent = self.chunks[-top_k:]
+            # fallback: most recent non-skill chunks
+            recent = [c for c in self.chunks if c.source != "skill"][-top_k:]
+            if not recent:
+                recent = self.chunks[-top_k:]
             blob = "\n---\n".join(c.text for c in recent)
             return blob[:max_chars]
 
-        ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
+        ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
         parts = []
         size = 0
         for cid, _ in ranked:
             chunk = id_map[cid]
+            if not want_skills and chunk.source == "skill":
+                continue
             if size + len(chunk.text) > max_chars and parts:
                 break
             parts.append(chunk.text)
             size += len(chunk.text)
+            if len(parts) >= top_k:
+                break
+        if not parts:
+            # Last resort: allow skills if nothing else scored
+            for cid, _ in ranked[:top_k]:
+                parts.append(id_map[cid].text)
         return "\n---\n".join(parts)
 
     def stats(self) -> dict:
