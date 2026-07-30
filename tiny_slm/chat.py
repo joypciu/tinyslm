@@ -20,6 +20,7 @@ from tiny_slm.knowledge import (
     looks_wrong_coding_answer,
     looks_wrong_sort_answer,
     repair_coding_answer,
+    repair_plan_answer,
     repair_short_definition,
     repair_truncated_greeting,
     scrub_generation,
@@ -414,6 +415,7 @@ class TinyChat:
         reply = repair_truncated_greeting(user, reply)
         reply = repair_short_definition(user, reply)
         reply = repair_coding_answer(user, reply)
+        reply = repair_plan_answer(user, reply)
         # Prefer first complete sentence for short chit-chat
         if reply and len(reply) > 160:
             m = re.match(r"^(.+?[.!?])(\s|$)", reply, re.S)
@@ -447,6 +449,7 @@ class TinyChat:
             reply = repair_truncated_greeting(user, reply)
             reply = repair_short_definition(user, reply)
             reply = repair_coding_answer(user, reply)
+            reply = repair_plan_answer(user, reply)
 
         if _bad(reply):
             faq_fallback = answer_from_faq(user) if use_grounded else None
