@@ -262,13 +262,21 @@ class TinyChat:
                 clean = _clean_for_history(web_ans)
                 self.history.append((user, clean))
                 self.memory.add_turn(user, clean)
-                # Also store digest for later recall
                 if search_digest and not search_digest.startswith("("):
                     self.memory.add_text(
                         f"WEB about {clean_search_query(user)}: {web_ans}",
                         source="web",
                     )
                 return display, search_digest
+            if search_digest and search_digest.startswith("("):
+                # Search attempted but failed — avoid garbage neural fill
+                msg = (
+                    "I tried the web but got no usable results. "
+                    "Try rephrasing, or ask a shorter factual question."
+                )
+                self.history.append((user, msg))
+                self.memory.add_turn(user, msg)
+                return f"[web]\n{search_digest}\n\n[model]\n{msg}", search_digest
 
         def _raw_generate(prompt_user: str) -> str:
             # Keep retrieved memory in the neural prompt for SARA drafts

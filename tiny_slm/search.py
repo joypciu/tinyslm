@@ -44,22 +44,7 @@ class SearchHit:
     href: str
 
 
-def search_web_hits(query: str, max_results: int = 5) -> List[SearchHit]:
-    """Fetch structured DuckDuckGo hits."""
-    query = clean_search_query(query)
-    if not query:
-        return []
-    DDGS = _get_ddgs()
-    try:
-        try:
-            with DDGS() as ddgs:
-                results = list(ddgs.text(query, max_results=max_results))
-        except TypeError:
-            ddgs = DDGS()
-            results = list(ddgs.text(query, max_results=max_results))
-    except Exception:
-        return []
-
+def _hits_from_raw(results) -> List[SearchHit]:
     hits: List[SearchHit] = []
     for r in results or []:
         title = (r.get("title") or "").strip()
@@ -68,6 +53,42 @@ def search_web_hits(query: str, max_results: int = 5) -> List[SearchHit]:
         if title or body:
             hits.append(SearchHit(title=title, body=body, href=href))
     return hits
+
+
+def search_web_hits(query: str, max_results: int = 5) -> List[SearchHit]:
+    """Fetch structured DuckDuckGo hits (news endpoint when the ask is newsy)."""
+    query = clean_search_query(query)
+    if not query:
+        return []
+    DDGS = _get_ddgs()
+    want_news = any(
+        w in query.lower()
+        for w in ("news", "latest", "breaking", "today", "headline")
+    )
+    try:
+        try:
+            with DDGS() as ddgs:
+                results = []
+                if want_news and hasattr(ddgs, "news"):
+                    try:
+                        results = list(ddgs.news(query, max_results=max_results))
+                    except Exception:
+                        results = []
+                if not results:
+                    results = list(ddgs.text(query, max_results=max_results))
+        except TypeError:
+            ddgs = DDGS()
+            results = []
+            if want_news and hasattr(ddgs, "news"):
+                try:
+                    results = list(ddgs.news(query, max_results=max_results))
+                except Exception:
+                    results = []
+            if not results:
+                results = list(ddgs.text(query, max_results=max_results))
+    except Exception:
+        return []
+    return _hits_from_raw(results)
 
 
 def format_hits(hits: List[SearchHit], max_chars: int = 900) -> str:
@@ -151,8 +172,13 @@ def needs_search(user_message: str) -> bool:
         return True
     # Open knowledge asks the tiny model usually fails on
     if re.search(
-        r"\b(explain|why do|why does|why is|what causes|how does|how do|what happens)\b",
+        r"\b(explain|why do|why does|why is|what causes|how does|what happens)\b",
         msg,
+    ):
+        return True
+    # "how do" for world knowledge, but not coding ("how do I write a function")
+    if re.search(r"\bhow do\b", msg) and not re.search(
+        r"\b(python|code|function|program|script|loop|variable)\b", msg
     ):
         return True
     if re.search(r"\bwhat is\b", msg) and len(msg) > 12:
