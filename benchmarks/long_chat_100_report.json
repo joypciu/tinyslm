@@ -1,9 +1,9 @@
 {
   "summary": {
     "turns": 100,
-    "total_seconds": 1.49,
+    "total_seconds": 1.5,
     "avg_latency_s": 0.015,
-    "p95_latency_s": 0.029,
+    "p95_latency_s": 0.03,
     "final_memory": {
       "chunks": 183,
       "tokens": 11793,
@@ -17,15 +17,15 @@
     "needle_model_hits": "4/4",
     "managed_long_chat": true,
     "context_compression": {
-      "neural_window": "Only the last 2 chat turns enter the Transformer prompt; block_size=256 truncates token ids from the left if needed.",
-      "long_memory": "Every turn is appended to LongContextMemory (up to 2,000,000 tokens). Older dialogue is not kept in the neural KV cache; it is retrieved by BM25 when the user asks about past facts.",
+      "neural_window": "Up to the last 3 short chat turns enter the Transformer prompt (falls back to 2 when recent turns are long); block_size=256 truncates token ids from the left if needed.",
+      "long_memory": "Every turn is appended to LongContextMemory (up to 2,000,000 tokens). Older dialogue is not kept in the neural KV cache; it is retrieved by BM25 when the user asks about past facts, then answered extractively when possible.",
       "eviction": "If memory exceeds max_tokens, oldest chunks are evicted and the index rebuilt."
     }
   },
   "memory_curve": [
     {
       "turn": 1,
-      "latency_s": 0.002,
+      "latency_s": 0.001,
       "history_turns_stored": 1,
       "history_in_prompt": 1,
       "memory_tokens": 293,
@@ -73,7 +73,7 @@
     },
     {
       "turn": 5,
-      "latency_s": 0.002,
+      "latency_s": 0.003,
       "history_turns_stored": 5,
       "history_in_prompt": 3,
       "memory_tokens": 676,
@@ -157,7 +157,7 @@
     },
     {
       "turn": 12,
-      "latency_s": 0.004,
+      "latency_s": 0.005,
       "history_turns_stored": 12,
       "history_in_prompt": 2,
       "memory_tokens": 1431,
@@ -169,7 +169,7 @@
     },
     {
       "turn": 13,
-      "latency_s": 0.004,
+      "latency_s": 0.003,
       "history_turns_stored": 13,
       "history_in_prompt": 2,
       "memory_tokens": 1552,
@@ -193,7 +193,7 @@
     },
     {
       "turn": 15,
-      "latency_s": 0.004,
+      "latency_s": 0.005,
       "history_turns_stored": 15,
       "history_in_prompt": 2,
       "memory_tokens": 1784,
@@ -205,7 +205,7 @@
     },
     {
       "turn": 16,
-      "latency_s": 0.004,
+      "latency_s": 0.006,
       "history_turns_stored": 16,
       "history_in_prompt": 2,
       "memory_tokens": 1902,
@@ -217,7 +217,7 @@
     },
     {
       "turn": 17,
-      "latency_s": 0.004,
+      "latency_s": 0.007,
       "history_turns_stored": 17,
       "history_in_prompt": 2,
       "memory_tokens": 1995,
@@ -229,7 +229,7 @@
     },
     {
       "turn": 18,
-      "latency_s": 0.006,
+      "latency_s": 0.009,
       "history_turns_stored": 18,
       "history_in_prompt": 2,
       "memory_tokens": 2113,
@@ -241,7 +241,7 @@
     },
     {
       "turn": 19,
-      "latency_s": 0.006,
+      "latency_s": 0.007,
       "history_turns_stored": 19,
       "history_in_prompt": 2,
       "memory_tokens": 2233,
@@ -253,7 +253,7 @@
     },
     {
       "turn": 20,
-      "latency_s": 0.009,
+      "latency_s": 0.008,
       "history_turns_stored": 20,
       "history_in_prompt": 2,
       "memory_tokens": 2353,
@@ -265,7 +265,7 @@
     },
     {
       "turn": 21,
-      "latency_s": 0.007,
+      "latency_s": 0.006,
       "history_turns_stored": 21,
       "history_in_prompt": 2,
       "memory_tokens": 2445,
@@ -289,7 +289,7 @@
     },
     {
       "turn": 23,
-      "latency_s": 0.006,
+      "latency_s": 0.007,
       "history_turns_stored": 23,
       "history_in_prompt": 3,
       "memory_tokens": 2629,
@@ -313,7 +313,7 @@
     },
     {
       "turn": 25,
-      "latency_s": 0.005,
+      "latency_s": 0.009,
       "history_turns_stored": 25,
       "history_in_prompt": 2,
       "memory_tokens": 2927,
@@ -325,7 +325,7 @@
     },
     {
       "turn": 26,
-      "latency_s": 0.009,
+      "latency_s": 0.014,
       "history_turns_stored": 26,
       "history_in_prompt": 2,
       "memory_tokens": 3053,
@@ -337,7 +337,7 @@
     },
     {
       "turn": 27,
-      "latency_s": 0.009,
+      "latency_s": 0.01,
       "history_turns_stored": 27,
       "history_in_prompt": 2,
       "memory_tokens": 3149,
@@ -361,7 +361,7 @@
     },
     {
       "turn": 29,
-      "latency_s": 0.004,
+      "latency_s": 0.005,
       "history_turns_stored": 29,
       "history_in_prompt": 3,
       "memory_tokens": 3355,
@@ -373,7 +373,7 @@
     },
     {
       "turn": 30,
-      "latency_s": 0.01,
+      "latency_s": 0.012,
       "history_turns_stored": 30,
       "history_in_prompt": 2,
       "memory_tokens": 3479,
@@ -385,7 +385,7 @@
     },
     {
       "turn": 31,
-      "latency_s": 0.012,
+      "latency_s": 0.011,
       "history_turns_stored": 31,
       "history_in_prompt": 2,
       "memory_tokens": 3605,
@@ -409,7 +409,7 @@
     },
     {
       "turn": 33,
-      "latency_s": 0.007,
+      "latency_s": 0.01,
       "history_turns_stored": 33,
       "history_in_prompt": 2,
       "memory_tokens": 3841,
@@ -421,7 +421,7 @@
     },
     {
       "turn": 34,
-      "latency_s": 0.019,
+      "latency_s": 0.014,
       "history_turns_stored": 34,
       "history_in_prompt": 2,
       "memory_tokens": 3938,
@@ -433,7 +433,7 @@
     },
     {
       "turn": 35,
-      "latency_s": 0.012,
+      "latency_s": 0.009,
       "history_turns_stored": 35,
       "history_in_prompt": 2,
       "memory_tokens": 4032,
@@ -457,7 +457,7 @@
     },
     {
       "turn": 37,
-      "latency_s": 0.011,
+      "latency_s": 0.012,
       "history_turns_stored": 37,
       "history_in_prompt": 3,
       "memory_tokens": 4243,
@@ -481,7 +481,7 @@
     },
     {
       "turn": 39,
-      "latency_s": 0.011,
+      "latency_s": 0.012,
       "history_turns_stored": 39,
       "history_in_prompt": 2,
       "memory_tokens": 4485,
@@ -553,7 +553,7 @@
     },
     {
       "turn": 45,
-      "latency_s": 0.013,
+      "latency_s": 0.012,
       "history_turns_stored": 45,
       "history_in_prompt": 2,
       "memory_tokens": 5195,
@@ -601,7 +601,7 @@
     },
     {
       "turn": 49,
-      "latency_s": 0.012,
+      "latency_s": 0.013,
       "history_turns_stored": 49,
       "history_in_prompt": 2,
       "memory_tokens": 5644,
@@ -613,7 +613,7 @@
     },
     {
       "turn": 50,
-      "latency_s": 0.01,
+      "latency_s": 0.011,
       "history_turns_stored": 50,
       "history_in_prompt": 2,
       "memory_tokens": 5826,
@@ -625,7 +625,7 @@
     },
     {
       "turn": 51,
-      "latency_s": 0.01,
+      "latency_s": 0.011,
       "history_turns_stored": 51,
       "history_in_prompt": 2,
       "memory_tokens": 5942,
@@ -757,7 +757,7 @@
     },
     {
       "turn": 62,
-      "latency_s": 0.022,
+      "latency_s": 0.021,
       "history_turns_stored": 62,
       "history_in_prompt": 2,
       "memory_tokens": 7163,
@@ -805,7 +805,7 @@
     },
     {
       "turn": 66,
-      "latency_s": 0.02,
+      "latency_s": 0.019,
       "history_turns_stored": 66,
       "history_in_prompt": 2,
       "memory_tokens": 7590,
@@ -817,7 +817,7 @@
     },
     {
       "turn": 67,
-      "latency_s": 0.019,
+      "latency_s": 0.018,
       "history_turns_stored": 67,
       "history_in_prompt": 2,
       "memory_tokens": 7709,
@@ -865,7 +865,7 @@
     },
     {
       "turn": 71,
-      "latency_s": 0.019,
+      "latency_s": 0.02,
       "history_turns_stored": 71,
       "history_in_prompt": 2,
       "memory_tokens": 8166,
@@ -913,7 +913,7 @@
     },
     {
       "turn": 75,
-      "latency_s": 0.021,
+      "latency_s": 0.022,
       "history_turns_stored": 75,
       "history_in_prompt": 2,
       "memory_tokens": 8677,
@@ -949,7 +949,7 @@
     },
     {
       "turn": 78,
-      "latency_s": 0.021,
+      "latency_s": 0.02,
       "history_turns_stored": 78,
       "history_in_prompt": 2,
       "memory_tokens": 9026,
@@ -973,7 +973,7 @@
     },
     {
       "turn": 80,
-      "latency_s": 0.027,
+      "latency_s": 0.026,
       "history_turns_stored": 80,
       "history_in_prompt": 2,
       "memory_tokens": 9240,
@@ -985,7 +985,7 @@
     },
     {
       "turn": 81,
-      "latency_s": 0.028,
+      "latency_s": 0.027,
       "history_turns_stored": 81,
       "history_in_prompt": 2,
       "memory_tokens": 9356,
@@ -997,7 +997,7 @@
     },
     {
       "turn": 82,
-      "latency_s": 0.025,
+      "latency_s": 0.024,
       "history_turns_stored": 82,
       "history_in_prompt": 2,
       "memory_tokens": 9452,
@@ -1009,7 +1009,7 @@
     },
     {
       "turn": 83,
-      "latency_s": 0.028,
+      "latency_s": 0.027,
       "history_turns_stored": 83,
       "history_in_prompt": 2,
       "memory_tokens": 9572,
@@ -1021,7 +1021,7 @@
     },
     {
       "turn": 84,
-      "latency_s": 0.023,
+      "latency_s": 0.022,
       "history_turns_stored": 84,
       "history_in_prompt": 2,
       "memory_tokens": 9686,
@@ -1033,7 +1033,7 @@
     },
     {
       "turn": 85,
-      "latency_s": 0.022,
+      "latency_s": 0.023,
       "history_turns_stored": 85,
       "history_in_prompt": 2,
       "memory_tokens": 9779,
@@ -1069,7 +1069,7 @@
     },
     {
       "turn": 88,
-      "latency_s": 0.028,
+      "latency_s": 0.027,
       "history_turns_stored": 88,
       "history_in_prompt": 2,
       "memory_tokens": 10139,
@@ -1081,7 +1081,7 @@
     },
     {
       "turn": 89,
-      "latency_s": 0.027,
+      "latency_s": 0.026,
       "history_turns_stored": 89,
       "history_in_prompt": 2,
       "memory_tokens": 10257,
@@ -1117,7 +1117,7 @@
     },
     {
       "turn": 92,
-      "latency_s": 0.029,
+      "latency_s": 0.03,
       "history_turns_stored": 92,
       "history_in_prompt": 2,
       "memory_tokens": 10613,
@@ -1165,7 +1165,7 @@
     },
     {
       "turn": 96,
-      "latency_s": 0.024,
+      "latency_s": 0.023,
       "history_turns_stored": 96,
       "history_in_prompt": 2,
       "memory_tokens": 11099,
@@ -1201,7 +1201,7 @@
     },
     {
       "turn": 99,
-      "latency_s": 0.033,
+      "latency_s": 0.032,
       "history_turns_stored": 99,
       "history_in_prompt": 2,
       "memory_tokens": 11423,
@@ -1213,7 +1213,7 @@
     },
     {
       "turn": 100,
-      "latency_s": 0.034,
+      "latency_s": 0.035,
       "history_turns_stored": 100,
       "history_in_prompt": 2,
       "memory_tokens": 11519,
@@ -1230,7 +1230,7 @@
       "code": "BLUE_LANTERN_CODE",
       "memory_retrieve_hit": true,
       "model_reply_hit": true,
-      "latency_s": 0.006,
+      "latency_s": 0.005,
       "retrieved_preview": "FACT from user: Let's talk about friendship, kindness, and learning with patience each day. Tell me something useful about sleep, focus, and keeping a calm rout",
       "reply_preview": "From memory: BLUE_LANTERN_CODE."
     },
@@ -1248,7 +1248,7 @@
       "code": "SILVER_OWL_99",
       "memory_retrieve_hit": true,
       "model_reply_hit": true,
-      "latency_s": 0.007,
+      "latency_s": 0.006,
       "retrieved_preview": "FACT from user: Tell me something useful about sleep, focus, and keeping a calm routine. Tell me something useful about sleep, focus, and keeping a calm routine",
       "reply_preview": "From memory: SILVER_OWL_99."
     },
@@ -1257,7 +1257,7 @@
       "code": "GREEN_COMET_7",
       "memory_retrieve_hit": true,
       "model_reply_hit": true,
-      "latency_s": 0.006,
+      "latency_s": 0.007,
       "retrieved_preview": "FACT from user: Can you explain simply how a CPU and RAM work inside a laptop computer? I am curious about cities, capitals, travel tips, and clear short answer",
       "reply_preview": "From memory: GREEN_COMET_7."
     }
@@ -1267,7 +1267,7 @@
       "turn": 1,
       "user": "Let's talk about friendship, kindness, and learning with patience each day. Tell me something useful about sleep, focus, and keeping a calm routine. I am curious about cities, capi",
       "reply": "Listen first, keep promises small and real, and say thank you when someone helps you.",
-      "latency_s": 0.002
+      "latency_s": 0.001
     },
     {
       "turn": 11,
@@ -1279,13 +1279,13 @@
       "turn": 21,
       "user": "Turn 21. Can you explain simply how a CPU and RAM work inside a laptop computer? Tell me something useful about sleep, focus, and keeping a calm routine. I want advice on writing a",
       "reply": "2 + 2 equals 4.",
-      "latency_s": 0.007
+      "latency_s": 0.006
     },
     {
       "turn": 31,
       "user": "Turn 31. I want advice on writing a polite email and planning a small homework task. Please keep answers warm and brief while we continue this long conversation. Tell me something ",
       "reply": "Start with a clear greeting, state your request in one short paragraph, then close politely.",
-      "latency_s": 0.012
+      "latency_s": 0.011
     },
     {
       "turn": 41,
@@ -1297,7 +1297,7 @@
       "turn": 51,
       "user": "Turn 51. Tell me something useful about sleep, focus, and keeping a calm routine. Please keep answers warm and brief while we continue this long conversation. Tell me something use",
       "reply": "Stay kind, keep it short, and take the next small step when you're ready.",
-      "latency_s": 0.01
+      "latency_s": 0.011
     },
     {
       "turn": 61,
@@ -1309,13 +1309,13 @@
       "turn": 71,
       "user": "Turn 71. I have been reading about plants and sunlight and how leaves make food. Let's talk about friendship, kindness, and learning with patience each day. Please keep answers war",
       "reply": "Photosynthesis is how plants make food from sunlight, water, and carbon dioxide.",
-      "latency_s": 0.019
+      "latency_s": 0.02
     },
     {
       "turn": 81,
       "user": "Turn 81. I want advice on writing a polite email and planning a small homework task. Today I practiced short math drills and reviewed my study notes carefully. Tell me something us",
       "reply": "RAM is short-term computer memory the CPU uses to hold running programs and data.",
-      "latency_s": 0.028
+      "latency_s": 0.027
     },
     {
       "turn": 91,

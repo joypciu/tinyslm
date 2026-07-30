@@ -2,7 +2,7 @@
 
 One continuous conversation (100 exchanges). Plants unique facts early,
 buries them under later turns, then probes recall. Reports how the neural
-window (last 2 turns) and 2M LongContextMemory share the load.
+window (adaptive last 2–3 short turns) and 2M LongContextMemory share the load.
 """
 
 from __future__ import annotations
@@ -85,7 +85,7 @@ def main() -> None:
     block = chat.model.config.block_size
     print(
         f"Long-chat stress: {args.turns} turns | neural block_size={block} | "
-        f"history_window=last 2 turns | memory_max={chat.memory.max_tokens:,}",
+        f"history_window=adaptive 2-3 turns | memory_max={chat.memory.max_tokens:,}",
         flush=True,
     )
 
@@ -181,16 +181,20 @@ def main() -> None:
     gen_hits = sum(1 for p in probe_results if p["model_reply_hit"])
     n_probes = max(1, len(probe_results))
 
+    prompt_ns = [m["history_in_prompt"] for m in mem_curve] or [2]
+    typical_prompt_n = max(set(prompt_ns), key=prompt_ns.count)
+
     # How compression works (documented from runtime behavior)
     mechanism = {
         "neural_window": (
-            f"Only the last 2 chat turns enter the Transformer prompt; "
+            f"Up to the last 3 short chat turns enter the Transformer prompt "
+            f"(falls back to 2 when recent turns are long); "
             f"block_size={block} truncates token ids from the left if needed."
         ),
         "long_memory": (
             "Every turn is appended to LongContextMemory (up to 2,000,000 tokens). "
             "Older dialogue is not kept in the neural KV cache; it is retrieved by BM25 "
-            "when the user asks about past facts."
+            "when the user asks about past facts, then answered extractively when possible."
         ),
         "eviction": (
             "If memory exceeds max_tokens, oldest chunks are evicted and the index rebuilt."
@@ -204,11 +208,11 @@ def main() -> None:
         "p95_latency_s": round(sorted(latencies)[int(0.95 * (len(latencies) - 1))], 3),
         "final_memory": chat.memory.stats(),
         "final_history_len": len(chat.history),
-        "history_prompt_window": 2,
+        "history_prompt_window": typical_prompt_n,
         "neural_block_size": block,
         "needle_memory_hits": f"{mem_hits}/{n_probes}",
         "needle_model_hits": f"{gen_hits}/{n_probes}",
-        "managed_long_chat": mem_hits >= max(1, n_probes - 1),
+        "managed_long_chat": mem_hits == n_probes and gen_hits == n_probes,
         "context_compression": mechanism,
     }
 
@@ -227,7 +231,7 @@ def main() -> None:
         "",
         f"- Turns: **{args.turns}** in one continuous session",
         f"- Total time: **{summary['total_seconds']}s** (avg **{summary['avg_latency_s']}s**/turn, p95 **{summary['p95_latency_s']}s**)",
-        f"- Neural block_size: **{block}** | prompt history window: **last 2 turns**",
+        f"- Neural block_size: **{block}** | prompt history window: **last {typical_prompt_n} turns** (adaptive 2–3)",
         f"- Final memory: **{summary['final_memory']['tokens']:,} tokens**, "
         f"**{summary['final_memory']['chunks']} chunks** "
         f"({summary['final_memory']['fill_pct']}% of 2M cap)",
