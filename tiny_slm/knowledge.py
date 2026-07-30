@@ -204,6 +204,18 @@ _FAQ: List[Tuple[List[str], str]] = [
         ["what is recursion", "what's recursion"],
         "Recursion is when a function solves a problem by calling itself on a smaller piece until a base case.",
     ),
+    (
+        ["what is machine learning", "what's machine learning", "what is ml"],
+        "Machine learning lets programs improve from examples instead of only hard-coded rules.",
+    ),
+    (
+        ["what is a neural network", "what's a neural network"],
+        "A neural network is a layered model of weighted connections that learns patterns from data.",
+    ),
+    (
+        ["what is overfitting", "what's overfitting"],
+        "Overfitting means a model memorizes training data too well and performs worse on new data.",
+    ),
 ]
 
 _CODE_CARDS: List[Tuple[List[str], str]] = [
@@ -297,6 +309,9 @@ def answer_from_code_template(user: str) -> Optional[str]:
             "while",
             "write",
             "save",
+            "map",
+            "filter",
+            "lambda",
         )
     ):
         return None

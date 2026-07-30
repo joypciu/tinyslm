@@ -113,6 +113,11 @@ def try_eval_math(text: str) -> Optional[str]:
     if sq:
         n = int(sq.group(1))
         return f"{n} squared equals {n * n}."
+    powm = re.search(r"(?:what\s+is\s+)?(\d+)\s*(?:\*\*|to the power of|raised to)\s*(\d+)", t)
+    if powm:
+        a, b = int(powm.group(1)), int(powm.group(2))
+        if 0 <= b <= 8 and a <= 1000:
+            return f"{a} to the power of {b} equals {a ** b}."
     m = re.search(
         r"what\s+is\s+(\d+)\s*(\+|plus|minus|-|times\b|\*|x|divided by|/)\s*(\d+)",
         t,

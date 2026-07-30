@@ -33,6 +33,8 @@ def main() -> None:
         fails.append("percent math")
     if "4" not in (try_eval_math("What is 2 + 2?") or ""):
         fails.append("add math")
+    if "8" not in (try_eval_math("2 to the power of 3") or ""):
+        fails.append("power math")
 
     ram = answer_from_faq("What is RAM?") or ""
     if "memory" not in ram.lower():
