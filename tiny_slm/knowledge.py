@@ -175,6 +175,22 @@ _CODE_CARDS: List[Tuple[List[str], str]] = [
         ["list comprehension"],
         "squares = [n*n for n in range(5)]  # [0, 1, 4, 9, 16]",
     ),
+    (
+        ["dictionary", "what is a dict", "python dict"],
+        "person = {'name': 'Ada', 'year': 1815}\nprint(person['name'])",
+    ),
+    (
+        ["try except", "exception handling", "try/except"],
+        "try:\n    n = int(text)\nexcept ValueError:\n    print('not a number')",
+    ),
+    (
+        ["read a file", "open a file", "read file in python"],
+        "with open('notes.txt', encoding='utf-8') as f:\n    text = f.read()",
+    ),
+    (
+        ["class in python", "what is a class", "define a class"],
+        "class Dog:\n    def __init__(self, name):\n        self.name = name\n\nDog('Rex').name",
+    ),
 ]
 
 

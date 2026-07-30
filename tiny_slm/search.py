@@ -173,14 +173,18 @@ def _best_sentences(text: str, limit: int = 2) -> List[str]:
             continue
         if p.lower().startswith("http"):
             continue
-        # Prefer informative sentences
+        # Prefer informative / fact-dense sentences
         score = 0
-        if re.search(r"\b(is|are|was|were|means|refers|caused|because)\b", p, re.I):
+        if re.search(r"\b(is|are|was|were|means|refers|caused|because|elected|born)\b", p, re.I):
             score += 2
-        if re.search(r"\d", p):
+        if re.search(r"\d{4}|\d+%|\$\d+", p):
+            score += 3
+        elif re.search(r"\d", p):
             score += 1
-        if len(p) > 180:
-            p = p[:177].rstrip() + "..."
+        if re.search(r"\b(according to|reported|announced|founded)\b", p, re.I):
+            score += 1
+        if len(p) > 200:
+            p = p[:197].rstrip() + "..."
         out.append((score, p))
     out.sort(key=lambda x: (-x[0], -len(x[1])))
     return [p for _, p in out[:limit]]
@@ -227,6 +231,18 @@ def answer_from_search(
         return f"From the web: {titles[0]}."[:max_chars]
     if not uniq:
         return ""
+
+    # Prefer sentences that overlap query keywords when provided
+    if query:
+        q_terms = {
+            t
+            for t in re.findall(r"[a-z0-9]+", clean_search_query(query).lower())
+            if len(t) > 3
+        }
+        if q_terms:
+            uniq.sort(
+                key=lambda s: -sum(1 for t in q_terms if t in s.lower())
+            )
 
     out = f"From the web: {uniq[0]}"
     if len(uniq) > 1:
