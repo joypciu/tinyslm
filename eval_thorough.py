@@ -56,6 +56,11 @@ LONG_CODING = [
         "average score, and print the top 3 names. Outline the Python approach.",
         ["csv", "average", "sort"],
     ),
+    (
+        "Create Python software for desktop. Build a small desktop app with a window, "
+        "a title, a text field, and a button that shows a message. Full Python code.",
+        ["tkinter", "button", "mainloop"],
+    ),
 ]
 
 AGENTIC = [

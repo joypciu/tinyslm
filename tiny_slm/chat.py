@@ -321,6 +321,24 @@ class TinyChat:
                     memory_add=lambda t: self.memory.add_text(t, source="long_task"),
                 )
                 final = scrub_generation(final) or final
+                # Never ship gibberish for long coding asks — prefer cards / clear ask.
+                if (
+                    looks_low_quality(final)
+                    or looks_wrong_coding_answer(user, final)
+                    or not any(
+                        t in final.lower()
+                        for t in ("def ", "class ", "import ", "step 1", "1)", "tkinter")
+                    )
+                ):
+                    rescue = answer_from_code_template(user) or answer_from_plan_template(user)
+                    if rescue:
+                        final = rescue
+                    else:
+                        final = (
+                            "I can help with a concrete coding goal. "
+                            "Example: Write a tkinter desktop app with a window, "
+                            "text field, and a button that shows a message."
+                        )
                 header = [
                     f"[long-task] steps={len(lt.steps)} block={self.model.config.block_size}"
                 ]

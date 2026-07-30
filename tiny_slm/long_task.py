@@ -39,6 +39,11 @@ _LONG_CUES = (
     "ship a tiny",
     "build a todo",
     "renames files",
+    "desktop",
+    "tkinter",
+    "gui",
+    "software for desktop",
+    "desktop app",
 )
 
 
@@ -101,6 +106,13 @@ def build_long_steps(goal: str) -> List[str]:
             "List files in the folder.",
             "Parse a date from each name.",
             "Dry-run new names then rename.",
+        ]
+    elif any(k in g for k in ("desktop", "tkinter", "gui", "window", "button")):
+        steps = [
+            "Create a Tk window with a title.",
+            "Add a text field and a button.",
+            "Show a message box when the button is clicked.",
+            "Call mainloop so the app stays open.",
         ]
     elif "break down" in g or "step by step" in g or "plan" in g:
         steps = [

@@ -331,6 +331,32 @@ _CODE_CARDS: List[Tuple[List[str], str]] = [
         ["enumerate", "use enumerate"],
         "for i, name in enumerate(['a', 'b']):\n    print(i, name)  # 0 a / 1 b",
     ),
+    (
+        [
+            "desktop",
+            "tkinter",
+            "gui app",
+            "desktop app",
+            "desktop software",
+            "python software for desktop",
+            "window and a button",
+            "text field",
+            "messagebox",
+        ],
+        "import tkinter as tk\nfrom tkinter import messagebox\n\n"
+        "root = tk.Tk()\n"
+        "root.title('TinySLM Desktop Demo')\n"
+        "root.geometry('360x160')\n\n"
+        "tk.Label(root, text='Type something:').pack(pady=6)\n"
+        "entry = tk.Entry(root, width=40)\n"
+        "entry.pack(pady=4)\n\n"
+        "def on_click():\n"
+        "    msg = entry.get().strip() or 'Hello from TinySLM!'\n"
+        "    messagebox.showinfo('Message', msg)\n\n"
+        "tk.Button(root, text='Show message', command=on_click).pack(pady=10)\n"
+        "root.mainloop()\n"
+        "# Run: python app.py",
+    ),
 ]
 
 
@@ -379,6 +405,13 @@ def answer_from_code_template(user: str) -> Optional[str]:
             "input.txt",
             "output.txt",
             "recursive",
+            "desktop",
+            "tkinter",
+            "gui",
+            "software",
+            "window",
+            "button",
+            "messagebox",
         )
     ):
         return None
@@ -710,6 +743,10 @@ def looks_wrong_coding_answer(user: str, reply: str) -> bool:
         (("try/except", "valueerror", "converts user text to int"), ("try:", "except")),
         (("if/else", "if else", "what does if"), ("if", "else")),
         (("adds two numbers", "function that adds", "def add"), ("def add", "return")),
+        (
+            ("desktop", "tkinter", "gui app", "desktop app", "desktop software"),
+            ("tkinter", "mainloop", "button"),
+        ),
     )
     for cues, need in rules:
         if any(c in u for c in cues) and not any(n in r for n in need):
