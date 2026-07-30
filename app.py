@@ -31,7 +31,7 @@ def build_demo(chat: TinyChat) -> gr.Blocks:
             send = gr.Button("Send", variant="primary", scale=1)
         with gr.Row():
             force_search = gr.Checkbox(label="Force DuckDuckGo search", value=False)
-            temperature = gr.Slider(0.1, 1.5, value=0.8, step=0.1, label="Temperature")
+            temperature = gr.Slider(0.1, 1.5, value=0.4, step=0.1, label="Temperature")
             clear = gr.Button("Clear")
 
         def respond(message, history, do_search, temp):
@@ -52,6 +52,7 @@ def build_demo(chat: TinyChat) -> gr.Blocks:
 
         def on_clear():
             chat.reset()
+            chat.clear_memory()
             return []
 
         send.click(respond, [msg, chatbot, force_search, temperature], [chatbot, msg])

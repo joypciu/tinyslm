@@ -19,7 +19,7 @@ from typing import Callable, List, Optional, Tuple
 from tiny_slm.agent import AgentState, build_plan, looks_agentic, run_agent_tools
 from tiny_slm.knowledge import answer_from_faq, answer_from_plan_template, scrub_generation
 from tiny_slm.memory import answer_from_memory
-from tiny_slm.search import clean_search_query, search_web
+from tiny_slm.search import answer_from_search, clean_search_query, search_web
 
 
 # Built-in skill cards (also ingestable into LongContextMemory)
@@ -218,6 +218,15 @@ def run_sara(
                 state.final = mem_ans
                 state.reflection = "extractive memory after tools"
                 return state
+            # Extractive web answer when search tool ran
+            for note in state.agent.scratchpad:
+                if note.startswith("[tool:search]"):
+                    web_ans = answer_from_search(note.replace("[tool:search]", "", 1))
+                    if web_ans:
+                        state.draft = web_ans
+                        state.final = web_ans
+                        state.reflection = "extractive web after tools"
+                        return state
 
     skill_txt = "\n".join(state.skills)
     notes = "\n".join(

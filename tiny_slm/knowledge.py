@@ -103,7 +103,7 @@ _FAQ: List[Tuple[List[str], str]] = [
         "A web browser is an app for opening websites - for example Chrome, Firefox, Edge, or Safari.",
     ),
     (
-        ["photosynthesis", "how leaves make food", "plants and sunlight"],
+        ["what is photosynthesis", "photosynthesis", "how leaves make food"],
         "Photosynthesis is how plants make food from sunlight, water, and carbon dioxide.",
     ),
     (
@@ -125,6 +125,29 @@ _FAQ: List[Tuple[List[str], str]] = [
     (
         ["what should i do", "what do you suggest", "any suggestion"],
         "Pick one small task you can finish in 10 minutes - starting tiny beats overthinking.",
+    ),
+    (
+        [
+            "friendly one-sentence reply",
+            "give a friendly",
+            "one short tip",
+            "short tip for me",
+            "remind me to stay brief",
+            "keep answers warm and brief",
+        ],
+        "Stay kind, keep it short, and take the next small step when you're ready.",
+    ),
+    (
+        ["friendship", "be a good friend", "kindness tip"],
+        "Listen first, keep promises small and real, and say thank you when someone helps you.",
+    ),
+    (
+        ["what is oxygen", "what's oxygen"],
+        "Oxygen is the gas living things need to breathe; it makes up much of the air with nitrogen.",
+    ),
+    (
+        ["what is a laptop", "what's a laptop"],
+        "A laptop is a portable computer with a screen, keyboard, battery, CPU, and memory in one device.",
     ),
 ]
 
@@ -234,6 +257,10 @@ _PLAN_TEMPLATES: List[Tuple[List[str], str]] = [
     (
         ["grocery", "shopping list", "plan shopping"],
         "1) Check what you already have. 2) List meals for 2-3 days. 3) Add staples. 4) Shop with the list only.",
+    ),
+    (
+        ["summarize", "summary", "summarise"],
+        "1) Name the topic in one line. 2) List 3 key points. 3) End with one takeaway sentence.",
     ),
 ]
 
