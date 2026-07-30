@@ -78,6 +78,19 @@ class TinyChat:
         added = self.memory.add_text(text, source=source)
         return {"added_tokens": added, **self.memory.stats()}
 
+    def _history_window(self) -> List[Tuple[str, str]]:
+        """Use up to 3 recent turns when they are short; else last 2.
+
+        Keeps the neural prompt denser without growing KV past block_size.
+        """
+        if not self.history:
+            return []
+        recent3 = self.history[-3:]
+        approx = sum(min(len(u), 100) + min(len(a), 120) for u, a in recent3)
+        if len(recent3) == 3 and approx <= 420:
+            return recent3
+        return self.history[-2:]
+
     def _build_prompt(
         self,
         user: str,
@@ -85,8 +98,8 @@ class TinyChat:
         memory_block: str = "",
     ) -> str:
         parts = ["<bos>"]
-        for u, a in self.history[-2:]:
-            parts.append(f"<user>{u[:120]}<eos><assistant>{a[:160]}<eos>")
+        for u, a in self._history_window():
+            parts.append(f"<user>{u[:100]}<eos><assistant>{a[:120]}<eos>")
         ctx_bits = []
         if memory_block:
             ctx_bits.append(f"[memory]\n{memory_block[:700]}\n")
@@ -178,6 +191,13 @@ class TinyChat:
             self.history.append((user, clean))
             self.memory.add_turn(user, clean)
             return display, search_digest
+
+        # Symbolic math before FAQ / neural (no training)
+        math_ans = try_eval_math(user)
+        if math_ans:
+            self.history.append((user, math_ans[:280]))
+            self.memory.add_turn(user, math_ans[:280])
+            return math_ans, search_digest
 
         # Grounded FAQ cards (no training) — covers brittle short definitions
         faq = answer_from_faq(user)

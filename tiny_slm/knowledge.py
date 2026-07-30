@@ -102,6 +102,30 @@ _FAQ: List[Tuple[List[str], str]] = [
         ["what is a browser", "what's a browser", "what is web browser"],
         "A web browser is an app for opening websites - for example Chrome, Firefox, Edge, or Safari.",
     ),
+    (
+        ["photosynthesis", "how leaves make food", "plants and sunlight"],
+        "Photosynthesis is how plants make food from sunlight, water, and carbon dioxide.",
+    ),
+    (
+        ["capital of germany", "germany capital", "germany's capital"],
+        "The capital of Germany is Berlin.",
+    ),
+    (
+        ["capital of italy", "italy capital", "italy's capital"],
+        "The capital of Italy is Rome.",
+    ),
+    (
+        ["capital of bangladesh", "bangladesh capital", "bangladesh's capital"],
+        "The capital of Bangladesh is Dhaka.",
+    ),
+    (
+        ["tell me a joke", "short joke", "joke please"],
+        "Why did the computer go to the doctor? Because it had a virus.",
+    ),
+    (
+        ["what should i do", "what do you suggest", "any suggestion"],
+        "Pick one small task you can finish in 10 minutes - starting tiny beats overthinking.",
+    ),
 ]
 
 
@@ -202,6 +226,14 @@ _PLAN_TEMPLATES: List[Tuple[List[str], str]] = [
     (
         ["morning routine", "plan my morning", "morning plan"],
         "1) Wake and drink water. 2) Light stretch. 3) Review today's top 3 tasks. 4) Start the first task.",
+    ),
+    (
+        ["exercise", "workout", "short workout", "plan a workout"],
+        "1) Warm up 3 minutes. 2) Do 3 simple moves. 3) Rest briefly between sets. 4) Stretch and drink water.",
+    ),
+    (
+        ["grocery", "shopping list", "plan shopping"],
+        "1) Check what you already have. 2) List meals for 2-3 days. 3) Add staples. 4) Shop with the list only.",
     ),
 ]
 
