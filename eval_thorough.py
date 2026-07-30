@@ -61,6 +61,12 @@ LONG_CODING = [
         "a title, a text field, and a button that shows a message. Full Python code.",
         ["tkinter", "button", "mainloop"],
     ),
+    (
+        "Add several features to this desktop app and give the FULL updated Python program: "
+        "Clear button, status label for character count, dark background, Enter key shows "
+        "the message, and a Quit button.",
+        ["clear", "quit", "characters", "bind"],
+    ),
 ]
 
 AGENTIC = [

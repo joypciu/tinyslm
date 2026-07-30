@@ -397,6 +397,52 @@ _CODE_CARDS: List[Tuple[List[str], str]] = [
     ),
     (
         [
+            "several features",
+            "clear button",
+            "status label",
+            "dark background",
+            "quit button",
+            "pressing enter",
+            "full updated",
+            "add several features",
+            "updated python program",
+            "character",
+            "empties the text",
+        ],
+        "import tkinter as tk\n"
+        "from tkinter import messagebox\n\n"
+        "root = tk.Tk()\n"
+        "root.title('TinySLM Desktop Pro')\n"
+        "root.geometry('420x220')\n"
+        "root.configure(bg='#1e1e1e')\n\n"
+        "fg = '#f0f0f0'\n"
+        "tk.Label(root, text='Type something:', bg='#1e1e1e', fg=fg).pack(pady=6)\n"
+        "entry = tk.Entry(root, width=42, bg='#2d2d2d', fg=fg, insertbackground=fg)\n"
+        "entry.pack(pady=4)\n"
+        "status = tk.Label(root, text='Characters: 0', bg='#1e1e1e', fg='#9cdcfe')\n"
+        "status.pack(pady=4)\n\n"
+        "def update_status(event=None):\n"
+        "    status.config(text=f'Characters: {len(entry.get())}')\n\n"
+        "def show_message(event=None):\n"
+        "    msg = entry.get().strip() or 'Hello from TinySLM!'\n"
+        "    messagebox.showinfo('Message', msg)\n\n"
+        "def clear_text():\n"
+        "    entry.delete(0, 'end')\n"
+        "    update_status()\n\n"
+        "def quit_app():\n"
+        "    root.destroy()\n\n"
+        "entry.bind('<KeyRelease>', update_status)\n"
+        "entry.bind('<Return>', show_message)\n\n"
+        "row = tk.Frame(root, bg='#1e1e1e')\n"
+        "row.pack(pady=10)\n"
+        "tk.Button(row, text='Show message', command=show_message).pack(side='left', padx=4)\n"
+        "tk.Button(row, text='Clear', command=clear_text).pack(side='left', padx=4)\n"
+        "tk.Button(row, text='Quit', command=quit_app).pack(side='left', padx=4)\n"
+        "root.mainloop()\n"
+        "# Run: python app.py",
+    ),
+    (
+        [
             "tkinter",
             "gui app",
             "desktop app",
@@ -480,16 +526,41 @@ def answer_from_code_template(user: str) -> Optional[str]:
             "pyqt",
             "pyqt5",
             "calculator",
+            "clear",
+            "status",
+            "quit",
+            "dark",
+            "features",
         )
     ):
         return None
     # Prefer the card with the strongest cue match (longer / more specific cues win).
+    feature_ask = any(
+        f in norm
+        for f in (
+            "several features",
+            "clear button",
+            "status label",
+            "dark background",
+            "quit button",
+            "pressing enter",
+            "full updated",
+            "add several",
+            "updated python",
+            "characters were typed",
+        )
+    )
     best: Optional[tuple[int, str]] = None
     for cues, ans in _CODE_CARDS:
         hits = [c for c in cues if c in norm]
         if not hits:
             continue
+        # Don't let the basic desktop demo steal feature-upgrade asks.
+        if feature_ask and "Desktop Demo" in ans and "Desktop Pro" not in ans:
+            continue
         score = max(len(c) for c in hits) * 10 + len(hits)
+        if feature_ask and "Desktop Pro" in ans:
+            score += 500
         if best is None or score > best[0]:
             best = (score, ans)
     return best[1] if best else None
@@ -823,6 +894,10 @@ def looks_wrong_coding_answer(user: str, reply: str) -> bool:
         ),
         (("pygame",), ("pygame", "display")),
         (("pyqt5", "pyqt", "desktop calculator"), ("pyqt5", "qapplication", "qpushbutton")),
+        (
+            ("several features", "clear button", "status label", "quit button", "dark background"),
+            ("clear", "quit", "characters", "bind"),
+        ),
     )
     for cues, need in rules:
         if any(c in u for c in cues) and not any(n in r for n in need):
