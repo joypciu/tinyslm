@@ -136,7 +136,73 @@ _FAQ: List[Tuple[List[str], str]] = [
         ["what is tinyslm", "what's tinyslm", "about tinyslm"],
         "TinySLM is a tiny from-scratch chat model with a short neural window plus up to 2M tokens of retrieved memory.",
     ),
+    (
+        ["explain gravity", "what is gravity", "what's gravity"],
+        "Gravity is the force that pulls masses together - it keeps us on Earth and planets in orbit around the Sun.",
+    ),
+    (
+        ["why do we sleep", "why sleep", "why do humans sleep"],
+        "Sleep lets the body and brain rest, repair, and consolidate memories from the day.",
+    ),
 ]
+
+_CODE_CARDS: List[Tuple[List[str], str]] = [
+    (
+        ["function that adds", "add two numbers", "adds two numbers"],
+        "def add(a, b):\n    return a + b\n\n# example: add(2, 3) -> 5",
+    ),
+    (
+        ["reverse a string", "reverse string", "string reverse"],
+        "s = 'hello'\nreversed_s = s[::-1]  # 'olleh'\n# or: ''.join(reversed(s))",
+    ),
+    (
+        ["for loop", "what is a for loop", "explain for loop"],
+        "A for loop repeats work for each item:\nfor x in [1, 2, 3]:\n    print(x)",
+    ),
+    (
+        ["if/else", "if else", "what does if/else"],
+        "if/else picks a branch:\nif n > 0:\n    print('positive')\nelse:\n    print('not positive')",
+    ),
+    (
+        ["what is a variable", "what's a variable", "variable in programming"],
+        "A variable is a named place that stores a value, e.g. score = 10 in Python.",
+    ),
+    (
+        ["hello world", "print hello"],
+        "print('Hello, world!')",
+    ),
+    (
+        ["list comprehension"],
+        "squares = [n*n for n in range(5)]  # [0, 1, 4, 9, 16]",
+    ),
+]
+
+
+def answer_from_code_template(user: str) -> Optional[str]:
+    """Short grounded code snippets for common programming asks."""
+    norm = re.sub(r"[^\w\s\?/']+", " ", (user or "").lower())
+    norm = re.sub(r"\s+", " ", norm).strip()
+    if not any(
+        w in norm
+        for w in (
+            "python",
+            "code",
+            "function",
+            "loop",
+            "variable",
+            "programming",
+            "string",
+            "if/else",
+            "if else",
+            "print",
+            "list comprehension",
+        )
+    ):
+        return None
+    for cues, ans in _CODE_CARDS:
+        if any(c in norm for c in cues):
+            return ans
+    return None
 
 # country key -> (display name, capital)
 _CAPITALS = {

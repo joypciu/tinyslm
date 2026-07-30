@@ -1,18 +1,21 @@
-"""DuckDuckGo web search helper (no API key)."""
+"""DuckDuckGo web search helper (no API key) + extractive answers."""
 
 from __future__ import annotations
 
 import re
-from typing import List
+from dataclasses import dataclass
+from typing import List, Optional
 
 
 def _get_ddgs():
     try:
         from ddgs import DDGS
+
         return DDGS
     except ImportError:
         try:
             from duckduckgo_search import DDGS
+
             return DDGS
         except ImportError as e:
             raise ImportError("Install search backend: pip install ddgs") from e
@@ -22,52 +25,100 @@ def clean_search_query(user_message: str) -> str:
     """Strip chat fluff so DuckDuckGo gets a usable query."""
     q = (user_message or "").strip()
     q = re.sub(
-        r"^(please\s+)?(search\s+(the\s+web\s+for\s+|for\s+)?|look\s+up\s+|google\s+|find\s+)",
+        r"^(please\s+)?(can you\s+|could you\s+)?(search\s+(the\s+web\s+for\s+|for\s+)?"
+        r"|look\s+up\s+|google\s+|find\s+(out\s+)?|tell me\s+|explain\s+)",
         "",
         q,
         flags=re.I,
     ).strip()
-    return q or user_message.strip()
+    q = re.sub(r"\b(please|thanks|thank you)\b", " ", q, flags=re.I)
+    q = re.sub(r"\s+", " ", q).strip(" ?!.")
+    # Keep the informative core of "what is / why / how" questions
+    return q or (user_message or "").strip()
 
 
-def search_web(query: str, max_results: int = 3) -> str:
+@dataclass
+class SearchHit:
+    title: str
+    body: str
+    href: str
+
+
+def search_web_hits(query: str, max_results: int = 5) -> List[SearchHit]:
+    """Fetch structured DuckDuckGo hits."""
+    query = clean_search_query(query)
+    if not query:
+        return []
+    DDGS = _get_ddgs()
+    try:
+        try:
+            with DDGS() as ddgs:
+                results = list(ddgs.text(query, max_results=max_results))
+        except TypeError:
+            ddgs = DDGS()
+            results = list(ddgs.text(query, max_results=max_results))
+    except Exception:
+        return []
+
+    hits: List[SearchHit] = []
+    for r in results or []:
+        title = (r.get("title") or "").strip()
+        body = (r.get("body") or r.get("snippet") or "").strip()
+        href = (r.get("href") or r.get("link") or "").strip()
+        if title or body:
+            hits.append(SearchHit(title=title, body=body, href=href))
+    return hits
+
+
+def format_hits(hits: List[SearchHit], max_chars: int = 900) -> str:
+    if not hits:
+        return "(no search results)"
+    lines: List[str] = []
+    size = 0
+    for i, h in enumerate(hits, 1):
+        block = f"{i}. {h.title}\n{h.body}\n{h.href}".strip()
+        if size + len(block) > max_chars and lines:
+            break
+        lines.append(block)
+        size += len(block)
+    return "\n\n".join(lines)
+
+
+def search_web(query: str, max_results: int = 4) -> str:
     """Return a short plain-text digest of DuckDuckGo results."""
     query = clean_search_query(query)
     if not query:
         return ""
-
-    DDGS = _get_ddgs()
     try:
-        with DDGS() as ddgs:
-            results = list(ddgs.text(query, max_results=max_results))
-    except TypeError:
-        # Some versions don't use context manager
-        try:
-            ddgs = DDGS()
-            results = list(ddgs.text(query, max_results=max_results))
-        except Exception as exc:
-            return f"(search failed: {exc})"
+        hits = search_web_hits(query, max_results=max_results)
     except Exception as exc:
         return f"(search failed: {exc})"
-
-    if not results:
+    if not hits:
         return "(no search results)"
-
-    lines: List[str] = []
-    for i, r in enumerate(results, 1):
-        title = (r.get("title") or "").strip()
-        body = (r.get("body") or r.get("snippet") or "").strip()
-        href = (r.get("href") or r.get("link") or "").strip()
-        lines.append(f"{i}. {title}\n{body}\n{href}")
-    return "\n\n".join(lines)
+    return format_hits(hits)
 
 
 def needs_search(user_message: str) -> bool:
-    """Heuristic: current events / factual lookup cues.
+    """Heuristic: live lookup / current events / open factual asks."""
+    msg = (user_message or "").lower().strip()
+    if not msg:
+        return False
+    # Skip pure chat / memory / math-ish
+    if any(
+        w in msg
+        for w in (
+            "using memory",
+            "remember this",
+            "hello",
+            "hi!",
+            "thanks",
+            "i'm bored",
+            "how are you",
+        )
+    ):
+        if not any(t in msg for t in ("search", "look up", "news", "latest")):
+            return False
 
-    Avoid ultra-broad words like bare "today"/"current" that fire on normal chat.
-    """
-    msg = user_message.lower()
     triggers = [
         "search",
         "look up",
@@ -88,44 +139,104 @@ def needs_search(user_message: str) -> bool:
         "in 2024",
         "in 2025",
         "in 2026",
+        "according to",
+        "on the internet",
+        "from the web",
     ]
     if any(t in msg for t in triggers):
         return True
-    # "who is <name>" but not "who is you" style chat
     if re.search(r"\bwho is\b", msg) and not re.search(
         r"\bwho is (you|this|that|it|tinyslm)\b", msg
     ):
         return True
+    # Open knowledge asks the tiny model usually fails on
+    if re.search(
+        r"\b(explain|why do|why does|why is|what causes|how does|how do|what happens)\b",
+        msg,
+    ):
+        return True
+    if re.search(r"\bwhat is\b", msg) and len(msg) > 12:
+        # FAQ may catch common ones first; remaining "what is" → web
+        return True
     return False
 
 
-def answer_from_search(digest: str, max_chars: int = 280) -> str:
-    """Build a short grounded reply from a DuckDuckGo digest (no LM rewrite)."""
+def _best_sentences(text: str, limit: int = 2) -> List[str]:
+    text = re.sub(r"\s+", " ", (text or "").strip())
+    if not text:
+        return []
+    parts = re.split(r"(?<=[.!?])\s+", text)
+    out = []
+    for p in parts:
+        p = p.strip()
+        if len(p) < 25:
+            continue
+        if p.lower().startswith("http"):
+            continue
+        # Prefer informative sentences
+        score = 0
+        if re.search(r"\b(is|are|was|were|means|refers|caused|because)\b", p, re.I):
+            score += 2
+        if re.search(r"\d", p):
+            score += 1
+        if len(p) > 180:
+            p = p[:177].rstrip() + "..."
+        out.append((score, p))
+    out.sort(key=lambda x: (-x[0], -len(x[1])))
+    return [p for _, p in out[:limit]]
+
+
+def answer_from_search(
+    digest: str,
+    max_chars: int = 420,
+    query: str = "",
+) -> str:
+    """Build a grounded multi-snippet reply from a DuckDuckGo digest."""
     text = (digest or "").strip()
     if not text or text.startswith("(search failed") or text.startswith("(no search"):
         return ""
-    # Prefer first result body line after "1. title"
-    m = re.search(r"^1\.\s*(.+)$\n(.+)$", text, re.M)
-    if m:
-        title = m.group(1).strip()
-        body = m.group(2).strip()
-        # skip URL-only body
-        if body.startswith("http"):
-            body = ""
-        if body:
-            snip = body.split(". ")[0].strip().rstrip(".") + "."
-            out = f"From the web: {snip}"
-            if title and title.lower() not in snip.lower():
-                out = f"From the web ({title}): {snip}"
-            return out[:max_chars]
-        if title:
-            return f"From the web: {title}."[:max_chars]
-    # Fallback: first non-empty non-url line
-    for line in text.splitlines():
-        line = line.strip()
-        if not line or line.startswith("http") or re.match(r"^\d+\.\s*$", line):
+
+    # Parse numbered hits
+    blocks = re.split(r"\n\s*\n", text)
+    snippets: List[str] = []
+    titles: List[str] = []
+    for block in blocks:
+        lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
+        if not lines:
             continue
-        line = re.sub(r"^\d+\.\s*", "", line)
-        if len(line) >= 12:
-            return ("From the web: " + line.rstrip(".") + ".")[:max_chars]
-    return ""
+        title = re.sub(r"^\d+\.\s*", "", lines[0]).strip()
+        body_lines = [ln for ln in lines[1:] if not ln.startswith("http")]
+        body = " ".join(body_lines).strip()
+        if title:
+            titles.append(title)
+        snippets.extend(_best_sentences(body, limit=2))
+        if not body and title and len(title) > 20:
+            snippets.append(title.rstrip(".") + ".")
+
+    # Dedupe near-identical sentences
+    uniq: List[str] = []
+    for s in snippets:
+        key = re.sub(r"[^a-z0-9]+", "", s.lower())[:48]
+        if any(key and key in re.sub(r"[^a-z0-9]+", "", u.lower()) for u in uniq):
+            continue
+        uniq.append(s)
+        if len(uniq) >= 3:
+            break
+
+    if not uniq and titles:
+        return f"From the web: {titles[0]}."[:max_chars]
+    if not uniq:
+        return ""
+
+    out = f"From the web: {uniq[0]}"
+    if len(uniq) > 1:
+        out += " Also: " + uniq[1]
+    return out[:max_chars]
+
+
+def should_prefer_web_answer(user: str) -> bool:
+    """True when an extractive web answer should beat a neural draft."""
+    u = (user or "").lower()
+    return needs_search(u) or any(
+        w in u for w in ("search", "look up", "latest", "news", "who is", "when did", "explain")
+    )

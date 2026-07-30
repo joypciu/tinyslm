@@ -17,11 +17,17 @@ def main() -> None:
         fails.append("plan not agentic")
 
     from tiny_slm.search import needs_search
+    from tiny_slm.knowledge import answer_from_code_template
 
     if needs_search("Please keep answers warm and brief today."):
         fails.append("today falsely needs search")
     if not needs_search("search the web for python release news"):
         fails.append("explicit search not detected")
+    if not needs_search("Explain gravity simply."):
+        fails.append("explain should auto-search")
+    code = answer_from_code_template("Write a Python function that adds two numbers.")
+    if not code or "def add" not in code:
+        fails.append("code template add")
 
     if try_eval_math("What is 10 percent of 200?") != "10% of 200 equals 20.":
         fails.append("percent math")

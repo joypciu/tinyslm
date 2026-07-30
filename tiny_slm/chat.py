@@ -11,6 +11,7 @@ import torch.nn.functional as F
 
 from tiny_slm.agent import looks_agentic
 from tiny_slm.knowledge import (
+    answer_from_code_template,
     answer_from_faq,
     answer_from_plan_template,
     looks_like_echo,
@@ -25,6 +26,7 @@ from tiny_slm.search import (
     clean_search_query,
     needs_search,
     search_web,
+    should_prefer_web_answer,
 )
 from tiny_slm.tokenizer import TinyTokenizer
 
@@ -245,6 +247,29 @@ class TinyChat:
             self.memory.add_turn(user, plan[:280])
             return plan, search_digest
 
+        code = answer_from_code_template(user)
+        if code:
+            self.history.append((user, code[:280]))
+            self.memory.add_turn(user, code[:280])
+            return code, search_digest
+
+        # Auto web search for open knowledge / news before weak neural decode
+        if force_search or (self.auto_search and needs_search(user)):
+            search_digest = search_web(clean_search_query(user), max_results=4)
+            web_ans = answer_from_search(search_digest, query=user)
+            if web_ans and should_prefer_web_answer(user):
+                display = f"[web]\n{search_digest}\n\n[model]\n{web_ans}"
+                clean = _clean_for_history(web_ans)
+                self.history.append((user, clean))
+                self.memory.add_turn(user, clean)
+                # Also store digest for later recall
+                if search_digest and not search_digest.startswith("("):
+                    self.memory.add_text(
+                        f"WEB about {clean_search_query(user)}: {web_ans}",
+                        source="web",
+                    )
+                return display, search_digest
+
         def _raw_generate(prompt_user: str) -> str:
             # Keep retrieved memory in the neural prompt for SARA drafts
             prompt = self._build_prompt(
@@ -286,9 +311,16 @@ class TinyChat:
             if looks_like_echo(user, reply) or looks_low_quality(reply):
                 faq_fallback = answer_from_faq(user)
                 plan_fallback = answer_from_plan_template(user)
+                code_fallback = answer_from_code_template(user)
+                web_fallback = None
+                if self.auto_search and not search_digest:
+                    search_digest = search_web(clean_search_query(user), max_results=4)
+                    web_fallback = answer_from_search(search_digest, query=user)
                 reply = (
                     faq_fallback
                     or plan_fallback
+                    or code_fallback
+                    or web_fallback
                     or (reply if not looks_low_quality(reply) else "")
                     or "I'm not sure I followed that — try a shorter question?"
                 )
@@ -311,25 +343,10 @@ class TinyChat:
             self.memory.add_turn(user, clean)
             return display, search_digest
 
-        # Simple chat / search path
+        # Simple chat path (search already attempted above when needed)
         tool_block = ""
-        if force_search or (self.auto_search and needs_search(user)):
-            search_digest = search_web(clean_search_query(user), max_results=3)
+        if search_digest:
             tool_block = f"[tool:search] {search_digest[:600]}"
-            # Prefer a grounded web snippet for explicit lookup-style asks
-            web_ans = answer_from_search(search_digest)
-            if web_ans and (
-                force_search
-                or any(
-                    w in user.lower()
-                    for w in ("search", "look up", "latest", "news", "who is", "when did")
-                )
-            ):
-                display = f"[web]\n{search_digest}\n\n[model]\n{web_ans}"
-                clean = _clean_for_history(web_ans)
-                self.history.append((user, clean))
-                self.memory.add_turn(user, clean)
-                return display, search_digest
         prompt = self._build_prompt(user, tool_block=tool_block, memory_block=memory_block)
         ids = self.tokenizer.encode(prompt)
         new_ids = self._generate(
@@ -352,10 +369,20 @@ class TinyChat:
         if not reply or looks_like_echo(user, reply) or looks_low_quality(reply):
             faq_fallback = answer_from_faq(user)
             plan_fallback = answer_from_plan_template(user)
-            web_fallback = answer_from_search(search_digest or "") if search_digest else None
-            reply = faq_fallback or plan_fallback or web_fallback or (
-                reply if reply and not looks_low_quality(reply) else None
-            ) or "I'm not sure I followed that — try a shorter question?"
+            code_fallback = answer_from_code_template(user)
+            if not search_digest and self.auto_search:
+                search_digest = search_web(clean_search_query(user), max_results=4)
+            web_fallback = (
+                answer_from_search(search_digest, query=user) if search_digest else None
+            )
+            reply = (
+                faq_fallback
+                or plan_fallback
+                or code_fallback
+                or web_fallback
+                or (reply if reply and not looks_low_quality(reply) else None)
+                or "I'm not sure I followed that — try a shorter question?"
+            )
 
         display = reply
         header_parts = []

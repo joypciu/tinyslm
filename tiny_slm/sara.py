@@ -231,7 +231,9 @@ def run_sara(
             # Extractive web answer when search tool ran
             for note in state.agent.scratchpad:
                 if note.startswith("[tool:search]"):
-                    web_ans = answer_from_search(note.replace("[tool:search]", "", 1))
+                    web_ans = answer_from_search(
+                        note.replace("[tool:search]", "", 1), query=goal
+                    )
                     if web_ans:
                         state.draft = web_ans
                         state.final = web_ans
