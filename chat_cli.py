@@ -17,9 +17,10 @@ def main() -> None:
     args = parser.parse_args()
 
     chat = TinyChat(ckpt_path=args.ckpt, tok_path=args.tok)
+    mem_path = ROOT / "checkpoints" / "memory_store.json"
     print(
         f"TinySLM ready ({chat.model.n_parameters():,} params). "
-        "Commands: quit | /clear | /memory | /search <q>\n"
+        "Commands: quit | /clear | /memory | /save | /load | /search <q>\n"
     )
 
     while True:
@@ -44,6 +45,14 @@ def main() -> None:
                 f"{st['chunks']} chunks, {st['fill_pct']}% full; "
                 f"history turns={len(chat.history)})"
             )
+            continue
+        if user.lower() in {"/save", "save"}:
+            chat.save_memory(mem_path)
+            print(f"(memory saved to {mem_path})")
+            continue
+        if user.lower() in {"/load", "load"}:
+            info = chat.load_memory(mem_path)
+            print(f"(memory loaded: {info})")
             continue
         force = user.lower().startswith("/search ")
         if force:

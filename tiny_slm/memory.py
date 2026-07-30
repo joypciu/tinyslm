@@ -8,11 +8,13 @@ neural context window (MQA + RoPE).
 
 from __future__ import annotations
 
+import json
 import math
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Union
 
 
 def approx_tokens(text: str) -> int:
@@ -329,3 +331,48 @@ class LongContextMemory:
             "max_tokens": self.max_tokens,
             "fill_pct": round(100.0 * self.total_tokens / max(1, self.max_tokens), 2),
         }
+
+    def save(self, path: Union[str, Path]) -> None:
+        """Persist chunks to JSON (index rebuilt on load)."""
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "max_tokens": self.max_tokens,
+            "chunk_chars": self.chunk_chars,
+            "chunks": [
+                {"text": c.text, "source": c.source, "tokens": c.tokens}
+                for c in self.chunks
+                if c.source != "skill"  # skills re-seeded by TinyChat
+            ],
+        }
+        path.write_text(json.dumps(payload), encoding="utf-8")
+
+    def load(self, path: Union[str, Path]) -> int:
+        """Load chunks from JSON; returns number of chunks loaded."""
+        path = Path(path)
+        if not path.exists():
+            return 0
+        data = json.loads(path.read_text(encoding="utf-8"))
+        self.clear()
+        self.max_tokens = int(data.get("max_tokens", self.max_tokens))
+        self.chunk_chars = int(data.get("chunk_chars", self.chunk_chars))
+        n = 0
+        for row in data.get("chunks", []):
+            text = (row.get("text") or "").strip()
+            if not text:
+                continue
+            tok = int(row.get("tokens") or approx_tokens(text))
+            chunk = Chunk(
+                id=self._next_id,
+                text=text,
+                source=row.get("source") or "chat",
+                tokens=tok,
+            )
+            self._next_id += 1
+            self.chunks.append(chunk)
+            self._index_chunk(chunk)
+            self.total_tokens += tok
+            n += 1
+            if self.total_tokens > self.max_tokens:
+                self._evict_oldest()
+        return n

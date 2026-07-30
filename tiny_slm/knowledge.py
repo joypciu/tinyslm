@@ -157,6 +157,18 @@ _FAQ: List[Tuple[List[str], str]] = [
         ["how to learn", "how do i learn", "best way to learn"],
         "Practice a little every day: one concept, one tiny exercise, then explain it in your own words.",
     ),
+    (
+        ["capital of india", "india capital", "india's capital"],
+        "The capital of India is New Delhi.",
+    ),
+    (
+        ["capital of the united states", "capital of usa", "us capital", "usa capital"],
+        "The capital of the United States is Washington, D.C.",
+    ),
+    (
+        ["what is ai", "what's ai", "what is artificial intelligence"],
+        "AI is software that learns patterns from data to help with language, vision, planning, and similar tasks.",
+    ),
 ]
 
 

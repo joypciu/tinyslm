@@ -82,6 +82,16 @@ def main() -> None:
         f"smoke basic={b_ok}/{b_n} smart={s_ok}/{s_n} agentic={a_ok}/{a_n} "
         f"ready={ready} extra_fails={len(fails)}"
     )
+    # Memory persistence round-trip
+    tmp = __import__("pathlib").Path("checkpoints/_smoke_memory.json")
+    chat.save_memory(tmp)
+    chat3 = TinyChat(auto_search=False)
+    info = chat3.load_memory(tmp)
+    got3 = chat3.memory.retrieve("launch code ORBIT", top_k=2)
+    tmp.unlink(missing_ok=True)
+    if "ORBIT-77" not in got3 or info.get("loaded_chunks", 0) < 1:
+        fails.append("memory save/load")
+
     for f in fails:
         print(f"  FAIL {f}")
     if fails or not ready:

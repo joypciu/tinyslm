@@ -90,6 +90,16 @@ class TinyChat:
         added = self.memory.add_text(text, source=source)
         return {"added_tokens": added, **self.memory.stats()}
 
+    def save_memory(self, path: Path | str) -> Path:
+        path = Path(path)
+        self.memory.save(path)
+        return path
+
+    def load_memory(self, path: Path | str) -> dict:
+        n = self.memory.load(path)
+        self._seed_skill_cards()
+        return {"loaded_chunks": n, **self.memory.stats()}
+
     def _history_window(self) -> List[Tuple[str, str]]:
         """Use up to 3 recent turns when they are short; else last 2.
 
@@ -135,7 +145,12 @@ class TinyChat:
     ) -> list[int]:
         model = self.model
         block = model.config.block_size
-        eos = self.tokenizer.eos_id
+        tok = self.tokenizer
+        stop_ids = {tok.eos_id}
+        for name in ("<user>", "<bos>", "<assistant>"):
+            tid = tok.vocab.get(name)
+            if tid is not None:
+                stop_ids.add(int(tid))
         device = self.device
 
         if len(ids) >= block:
@@ -163,10 +178,15 @@ class TinyChat:
             probs = F.softmax(logits_last, dim=-1)
             next_id = torch.multinomial(probs, num_samples=1)
             tid = int(next_id.item())
+            if tid in stop_ids:
+                break
             out_ids.append(tid)
             generated.append(tid)
-            if tid == eos:
-                break
+            # Bail if special markers leak as decoded text
+            if len(out_ids) % 8 == 0:
+                frag = tok.decode(out_ids, skip_special=False)
+                if any(m in frag for m in ("<user>", "<bos>", "<assistant>", "<eos>")):
+                    break
             if past is not None and past[0][0].size(2) >= block:
                 past = None
                 ctx = torch.tensor([generated[-block:]], dtype=torch.long, device=device)
