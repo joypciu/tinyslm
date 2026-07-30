@@ -268,6 +268,10 @@ _CODE_CARDS: List[Tuple[List[str], str]] = [
         "nums = [1, 2]\nnums.append(3)  # [1, 2, 3]",
     ),
     (
+        ["filter a list", "use filter in python", "filter function", "filter even", "filter"],
+        "nums = [1, 2, 3, 4]\nlist(filter(lambda n: n % 2 == 0, nums))  # [2, 4]",
+    ),
+    (
         ["try except", "exception handling", "try/except"],
         "try:\n    n = int(text)\nexcept ValueError:\n    print('not a number')",
     ),
@@ -623,6 +627,7 @@ def looks_wrong_coding_answer(user: str, reply: str) -> bool:
         (("dict", "dictionary"), ("{",)),
         (("list comprehension", "comprehension that square"), ("for", "in")),
         (("read a file", "read file"), ("open(", "read")),
+        (("filter",), ("filter",)),
     )
     for cues, need in rules:
         if any(c in u for c in cues) and not any(n in r for n in need):
@@ -636,6 +641,12 @@ def looks_low_quality(reply: str) -> bool:
     if len(t) < 4:
         return True
     low = t.lower()
+    # Code snippets are punctuation-heavy; don't treat as gibberish.
+    if any(
+        m in t
+        for m in ("def ", "lambda", "[::-1]", "append(", "filter(", "open(", "for n in", "for x in")
+    ) or ("=" in t and ("[" in t or "(" in t)):
+        return False
     if low.startswith("plan:") and len(t) < 48:
         return True
     if "user ask:" in low or "notes:" in low:

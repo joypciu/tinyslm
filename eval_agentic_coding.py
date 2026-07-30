@@ -20,6 +20,7 @@ CODING = [
     ("Write a list comprehension that squares numbers.", ["for", "in"]),
     ("What is a dict in Python?", ["{", "name"]),
     ("How do I append to a list in Python?", ["append"]),
+    ("How do I filter even numbers in Python?", ["filter"]),
 ]
 
 AGENTIC = [
