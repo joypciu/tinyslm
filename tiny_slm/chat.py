@@ -394,16 +394,36 @@ class TinyChat:
             m = re.match(r"^(.+?[.!?])(\s|$)", reply, re.S)
             if m and len(m.group(1)) >= 20:
                 reply = m.group(1).strip()
-        if (
-            not reply
-            or looks_like_echo(user, reply)
-            or looks_low_quality(reply)
-            or looks_off_topic_math(user, reply)
-            or looks_wrong_sort_answer(user, reply)
-        ):
-            faq_fallback = answer_from_faq(user)
-            plan_fallback = answer_from_plan_template(user)
-            code_fallback = answer_from_code_template(user)
+
+        def _bad(r: str) -> bool:
+            return (
+                not r
+                or looks_like_echo(user, r)
+                or looks_low_quality(r)
+                or looks_off_topic_math(user, r)
+                or looks_wrong_sort_answer(user, r)
+            )
+
+        if _bad(reply) and not use_grounded:
+            # One cooler neural retry before giving up (no template rescue).
+            retry_ids = self._generate(
+                ids,
+                max_new_tokens=max_new_tokens,
+                temperature=min(temperature, 0.15),
+                top_k=min(top_k or 20, 12),
+                repetition_penalty=repetition_penalty,
+            )
+            reply = scrub_generation(
+                self.tokenizer.decode(retry_ids, skip_special=True).strip()
+            )
+            if "\n\n" in reply:
+                reply = reply.split("\n\n", 1)[0].strip()
+            reply = repair_truncated_greeting(user, reply)
+
+        if _bad(reply):
+            faq_fallback = answer_from_faq(user) if use_grounded else None
+            plan_fallback = answer_from_plan_template(user) if use_grounded else None
+            code_fallback = answer_from_code_template(user) if use_grounded else None
             if not search_digest and self.auto_search:
                 search_digest = self._cached_search(user, max_results=4)
             web_fallback = (
