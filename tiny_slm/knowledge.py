@@ -529,19 +529,20 @@ def answer_from_plan_template(user: str) -> Optional[str]:
 
 
 def repair_truncated_greeting(user: str, reply: str) -> str:
-    """Tiny nets often emit only the second half of the greeting."""
+    """Tiny nets often emit only the second half of the greeting — or drift off-topic."""
     bare = re.sub(r"[^\w\s]", "", (user or "").lower()).strip()
     if bare not in ("hello", "hi", "hey", "good morning", "good evening"):
         return reply
     t = (reply or "").strip()
     if not t:
-        return t
+        return "Hi! I'm TinySLM. How are you doing today?"
     low = t.lower()
     if "tinyslm" in low or low.startswith(("hi!", "hi ", "hello", "hey")):
         return t
     if any(p in low for p in ("how are you", "how can i help", "doing today")):
         return "Hi! I'm TinySLM. " + t
-    return t
+    # Collapsed into unrelated prompts ("What is 2 + 2?")
+    return "Hi! I'm TinySLM. How are you doing today?"
 
 
 def looks_off_topic_math(user: str, reply: str) -> bool:
