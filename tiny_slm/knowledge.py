@@ -62,6 +62,30 @@ _FAQ: List[Tuple[List[str], str]] = [
         ["who are you", "what are you"],
         "I'm TinySLM, a tiny from-scratch chat model with long memory and light tools.",
     ),
+    (
+        ["hello!", "hello", "hi!", "hi", "hey!", "hey", "good morning", "good evening"],
+        "Hi! I'm TinySLM. How are you doing today?",
+    ),
+    (
+        ["what is ssd", "what's ssd", "whats ssd", "define ssd"],
+        "An SSD is solid-state storage - fast disk memory that keeps files when the computer is off.",
+    ),
+    (
+        ["what is the internet", "what's the internet", "what is internet"],
+        "The internet is a global network that lets computers share websites, messages, and data.",
+    ),
+    (
+        ["polite email", "write a polite email", "email tip"],
+        "Start with a clear greeting, state your request in one short paragraph, then close politely.",
+    ),
+    (
+        ["focus tip", "stay focused", "how to focus"],
+        "Pick one task, silence notifications for 20 minutes, then take a short break.",
+    ),
+    (
+        ["thank you", "thanks", "thanks!", "thank you!"],
+        "You're welcome - happy to help anytime.",
+    ),
 ]
 
 
@@ -84,13 +108,21 @@ def answer_from_faq(user: str) -> Optional[str]:
         return (
             "France's capital is Paris. Japan's capital is Tokyo."
         )
-    for cues, ans in _FAQ:
-        for cue in cues:
-            if cue in norm or cue.rstrip("?") == norm.rstrip("?"):
-                return ans
-            if cue.endswith("?") and norm.rstrip("?") == cue.rstrip("?"):
-                return ans
+    # Exact short greetings / thanks before looser substring cards
     bare = norm.rstrip("?").strip()
+    if bare in ("hello", "hi", "hey", "good morning", "good evening"):
+        return "Hi! I'm TinySLM. How are you doing today?"
+    if bare in ("thanks", "thank you", "thx"):
+        return "You're welcome - happy to help anytime."
+    for cues, ans in _FAQ:
+        # Skip ultra-short greeting cues for long non-greeting utterances
+        for cue in cues:
+            if cue in ("hi", "hey", "hello", "hi!", "hey!", "hello!") and len(norm) > 24:
+                continue
+            if cue in norm or cue.rstrip("?") == bare:
+                return ans
+            if cue.endswith("?") and bare == cue.rstrip("?"):
+                return ans
     if bare in ("ram",):
         return _FAQ[0][1]
     if bare in ("cpu",):
@@ -111,18 +143,31 @@ def scrub_generation(text: str) -> str:
         "\nReflection:",
         "\nDraft was:",
         "\nQuestion:",
+        "\nSKILL ",
+        "\n[tool:",
+        "\n[memory]",
+        "\n[agent]",
     ):
         if marker in t:
             t = t.split(marker, 1)[0].strip()
-    # Drop trailing meta lines
+    # Also cut inline leakage without leading newline
+    t = re.split(r"\bUser ask\s*:", t, maxsplit=1)[0].strip()
     lines = []
     for line in t.splitlines():
         low = line.strip().lower()
-        if low.startswith(("user ask:", "notes:", "reflection:", "draft was:")):
+        if low.startswith(
+            ("user ask:", "notes:", "reflection:", "draft was:", "skill ", "[tool:")
+        ):
             break
         lines.append(line)
     t = "\n".join(lines).strip()
-    return t
+    # Drop a trailing broken fragment (often cut mid-word by max tokens)
+    if t and not t[-1] in ".!?)" and " " in t:
+        words = t.split()
+        last = words[-1]
+        if len(last) <= 2 or not re.search(r"[aeiouy]", last.lower()):
+            t = " ".join(words[:-1]).rstrip(",;:") + ("." if words[:-1] else "")
+    return t.strip()
 
 
 _PLAN_TEMPLATES: List[Tuple[List[str], str]] = [
@@ -133,6 +178,14 @@ _PLAN_TEMPLATES: List[Tuple[List[str], str]] = [
     (
         ["learn python", "python basics", "learn python basics"],
         "Step 1: install Python. Step 2: learn variables and print. Step 3: practice if/else. Step 4: write a tiny script.",
+    ),
+    (
+        ["homework", "small homework", "plan homework"],
+        "1) List the due work. 2) Do the hardest item first for 15 minutes. 3) Check answers. 4) Pack what you need for tomorrow.",
+    ),
+    (
+        ["morning routine", "plan my morning", "morning plan"],
+        "1) Wake and drink water. 2) Light stretch. 3) Review today's top 3 tasks. 4) Start the first task.",
     ),
 ]
 
