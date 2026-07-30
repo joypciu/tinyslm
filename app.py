@@ -19,8 +19,8 @@ def build_demo(chat: TinyChat) -> gr.Blocks:
         gr.Markdown(
             """
             # TinySLM
-            From-scratch SLM with **2M memory**, SARA tools, FAQ/math fast-paths, and DuckDuckGo.
-            Tip: say *search* / *news* for live lookup; memory survives via Save/Load.
+            From-scratch SLM with **2M memory**, SARA tools, FAQ/math/code fast-paths, and **auto DuckDuckGo**
+            when a question needs live facts. Tip: say *search* / *news* to force lookup; use Save/Load for memory.
             """
         )
         chatbot = gr.Chatbot(height=420, label="Chat")

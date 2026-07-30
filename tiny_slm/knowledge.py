@@ -180,6 +180,18 @@ _FAQ: List[Tuple[List[str], str]] = [
         ["what is linux", "what's linux"],
         "Linux is an open-source operating system kernel used in servers, phones, and many computers.",
     ),
+    (
+        ["what is docker", "what's docker"],
+        "Docker packages an app and its dependencies into a container so it runs the same on different machines.",
+    ),
+    (
+        ["what is dns", "what's dns"],
+        "DNS translates human website names like example.com into IP addresses computers can route to.",
+    ),
+    (
+        ["what is a database", "what's a database"],
+        "A database stores structured data so programs can insert, query, update, and delete it reliably.",
+    ),
 ]
 
 _CODE_CARDS: List[Tuple[List[str], str]] = [
@@ -262,6 +274,9 @@ def answer_from_code_template(user: str) -> Optional[str]:
             "file",
             "except",
             "exception",
+            "while",
+            "write",
+            "save",
         )
     ):
         return None

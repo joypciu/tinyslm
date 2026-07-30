@@ -31,9 +31,12 @@ def clean_search_query(user_message: str) -> str:
         q,
         flags=re.I,
     ).strip()
-    q = re.sub(r"\b(please|thanks|thank you)\b", " ", q, flags=re.I)
+    q = re.sub(r"\b(please|thanks|thank you|briefly|simply)\b", " ", q, flags=re.I)
     q = re.sub(r"\s+", " ", q).strip(" ?!.")
-    # Keep the informative core of "what is / why / how" questions
+    # "who is X" / "what is X" keep the subject
+    m = re.match(r"^(who is|what is|what's|whats)\s+(.+)$", q, flags=re.I)
+    if m:
+        q = m.group(2).strip()
     return q or (user_message or "").strip()
 
 
