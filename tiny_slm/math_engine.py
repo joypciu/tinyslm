@@ -42,7 +42,7 @@ _MATH_CUES = re.compile(
     r"eigenvalue|matrix|determinant|laplacian|fourier|"
     r"differential equation|\bode\b|\bpde\b|hessian|"
     r"simplify|expand|factor|solve for|equation|inequality|"
-    r"probability|bayes|expectation|variance|binomial|"
+    r"probability|bayes|expectation|variance|binomial|partial|"
     r"modulo|\bgcd\b|\blcm\b|combinator|permutation|"
     r"\blog\b|\bln\b|\bsin\b|\bcos\b|\btan\b|sqrt|factorial|"
     r"taylor|maclaurin|series expansion|dot product|cross product|\bnorm of\b|"
@@ -238,6 +238,22 @@ def _legacy_eval(text: str) -> Optional[str]:
     bayes = _try_bayes(text)
     if bayes:
         return bayes
+    # mean / variance of a small numeric list
+    mstat = re.search(
+        r"(mean|average|variance)\s+of\s*\[([^\]]+)\]",
+        t,
+    )
+    if mstat:
+        try:
+            nums = [float(x.strip()) for x in mstat.group(2).split(",") if x.strip()]
+            if 1 <= len(nums) <= 32:
+                mu = sum(nums) / len(nums)
+                if mstat.group(1) in ("mean", "average"):
+                    return f"Verified result: mean = {mu:.6g}."
+                var = sum((x - mu) ** 2 for x in nums) / len(nums)
+                return f"Verified result: variance (population) = {var:.6g}."
+        except Exception:
+            pass
     # compound first (before bare percent steals the match)
     pct_add = re.search(
         r"what\s+is\s+(\d+)\s*(?:%|percent)\s*of\s+(\d+)\s*,?\s*then\s+add\s+(\d+)",
@@ -372,6 +388,14 @@ def _extract_expr_blob(text: str) -> Optional[str]:
     m = re.search(r"d/d([a-z])\s+(.+)$", low)
     if m:
         return f"diff({m.group(2).strip(' .?')}, {m.group(1)})"
+
+    # partial derivative: partial of x**2*y w.r.t. x
+    m = re.search(
+        r"partial(?:\s+derivative)?\s+(?:of\s+)?(.+?)\s*(?:w\.?r\.?t\.?|with respect to)\s*([a-z])\b",
+        low,
+    )
+    if m:
+        return f"diff({m.group(1).strip(' .?')}, {m.group(2)})"
 
     m = re.search(r"limit\s+(?:as\s+)?([a-z])\s*->\s*([^\s,]+)\s+of\s+(.+)$", low)
     if m:
