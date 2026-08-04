@@ -43,7 +43,7 @@ _MATH_CUES = re.compile(
     r"differential equation|\bode\b|\bpde\b|hessian|"
     r"simplify|expand|factor|solve for|equation|inequality|"
     r"probability|bayes|expectation|variance|binomial|partial|"
-    r"modulo|\bgcd\b|\blcm\b|combinator|permutation|"
+    r"modulo|\bgcd\b|\blcm\b|combinator|permutation|floor|ceiling|\bceil\b|\bround\b|"
     r"\blog\b|\bln\b|\bsin\b|\bcos\b|\btan\b|sqrt|factorial|"
     r"taylor|maclaurin|series expansion|dot product|cross product|\bnorm of\b|"
     r"complex|modulus|\barg\b|"
@@ -239,6 +239,21 @@ def _legacy_eval(text: str) -> Optional[str]:
     bayes = _try_bayes(text)
     if bayes:
         return bayes
+    # floor / ceil / round (avoid matching "around 0" in Taylor asks)
+    fl = re.search(
+        r"(?<![a-z])(floor|ceiling|ceil|round)\s*(?:of\s+|\(\s*)(-?\d+(?:\.\d+)?)\)?",
+        t,
+    )
+    if fl:
+        op, num = fl.group(1), fl.group(2)
+        x = float(num)
+        import math as _math
+
+        if op == "floor":
+            return f"Verified result: floor({num}) = {int(_math.floor(x))}."
+        if op in ("ceil", "ceiling"):
+            return f"Verified result: ceil({num}) = {int(_math.ceil(x))}."
+        return f"Verified result: round({num}) = {round(x)}."
     # modulo / remainder
     mod = re.search(
         r"(?:what\s+is\s+)?(\d+)\s*(?:mod|modulo|%\s*|modded by)\s*(\d+)",
@@ -361,6 +376,9 @@ def _sympy_locals():
         "sqrt": sp.sqrt,
         "Rational": sp.Rational,
         "Abs": sp.Abs,
+        "floor": sp.floor,
+        "ceiling": sp.ceiling,
+        "ceil": sp.ceiling,
         "factorial": sp.factorial,
         "diff": sp.diff,
         "integrate": sp.integrate,

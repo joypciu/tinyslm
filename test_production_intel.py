@@ -63,6 +63,8 @@ def test_basic_and_symbolic_math() -> None:
     assert "2" in (try_solve_math("3rd root of 8") or "")
     assert "pi" in (try_solve_math("180 degrees to radians") or "").lower()
     assert "= 1" in (try_solve_math("17 mod 4") or "")
+    assert "= 3" in (try_solve_math("floor of 3.9") or "")
+    assert "= 4" in (try_solve_math("ceil of 3.1") or "")
     action_pde, _ = math_policy("Solve the Navier-Stokes PDE for my thesis.")
     assert action_pde == "abstain"
 
