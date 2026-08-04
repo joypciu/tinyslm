@@ -511,6 +511,25 @@ def _extract_expr_blob(text: str) -> Optional[str]:
     if m:
         return f"__lcm__{m.group(1)},{m.group(2)}"
 
+    # factorial n!
+    m = re.search(r"factorial\s*(?:of\s*)?(\d+)|(\d+)\s*!", low)
+    if m:
+        n = m.group(1) or m.group(2)
+        return f"__fact__{n}"
+
+    # permutations P(n,k) — digit args only (avoids Bayes P(A|B))
+    m = re.search(
+        r"(?:permutations?|perm)\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)"
+        r"|(\d+)\s+permute\s+(\d+)"
+        r"|p\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)",
+        low,
+    )
+    if m:
+        pairs = [(m.group(1), m.group(2)), (m.group(3), m.group(4)), (m.group(5), m.group(6))]
+        for a, b in pairs:
+            if a is not None and b is not None:
+                return f"__perm__{a},{b}"
+
     # binomial coefficient C(n,k) / n choose k
     m = re.search(
         r"(?:binomial\s*(?:coefficient)?|choose)\s*(?:of\s*)?\(?\s*(\d+)\s*[, ]\s*(\d+)\s*\)?"
@@ -769,6 +788,25 @@ def try_solve_math_once(text: str) -> Optional[str]:
 
             aa, bb = int(a), int(b)
             return f"Verified result: lcm({aa}, {bb}) = {math.lcm(aa, bb)}."
+        except Exception:
+            return None
+    if blob.startswith("__fact__"):
+        try:
+            n = int(blob[len("__fact__") :])
+            if 0 <= n <= 20:
+                from math import factorial
+
+                return f"Verified result: {n}! = {factorial(n)}."
+        except Exception:
+            return None
+    if blob.startswith("__perm__"):
+        try:
+            n_s, k_s = blob[len("__perm__") :].split(",")
+            n, k = int(n_s), int(k_s)
+            if 0 <= k <= n <= 20:
+                from math import perm
+
+                return f"Verified result: P({n}, {k}) = {perm(n, k)}."
         except Exception:
             return None
     if blob.startswith("__binom__"):

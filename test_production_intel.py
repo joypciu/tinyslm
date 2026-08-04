@@ -45,6 +45,8 @@ def test_basic_and_symbolic_math() -> None:
     assert ans11 and "2*x*y" in ans11.replace(" ", ""), ans11
     assert "3" in (try_solve_math("mean of [1, 2, 3, 4, 5]") or "")
     assert "2" in (try_solve_math("variance of [1, 2, 3, 4, 5]") or "")
+    assert "= 120" in (try_solve_math("factorial of 5") or "")
+    assert "= 60" in (try_solve_math("P(5, 3)") or "")
     action_pde, _ = math_policy("Solve the Navier-Stokes PDE for my thesis.")
     assert action_pde == "abstain"
 
