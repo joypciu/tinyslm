@@ -138,6 +138,27 @@ def reflect_on_draft(goal: str, draft: str, memory_snip: str = "") -> Tuple[bool
     if "2 + 2" in goal.lower() or "2+2" in goal.lower():
         if "4" not in d:
             issues.append("math wrong")
+    # Verified math / code reflect (fail closed for agent drafts)
+    from tiny_slm.math_engine import looks_like_math, try_solve_math
+
+    if looks_like_math(goal):
+        gold = try_solve_math(goal)
+        if gold:
+            # Require a digit/token from verified result to appear in draft
+            core = re.sub(r"[^0-9a-z\-\./]+", " ", gold.lower())
+            tokens = [t for t in core.split() if len(t) >= 1][:3]
+            if tokens and not any(t in d.lower() for t in tokens):
+                issues.append("math-unverified-draft")
+        else:
+            issues.append("math-unsolvable")
+    if any(w in goal.lower() for w in ("python", "function", "write a", "implement")):
+        from tiny_slm.code_verify import verify_python_syntax
+
+        ok_syn, _ = verify_python_syntax(d)
+        if not ok_syn and "def " not in d.lower() and "class " not in d.lower():
+            issues.append("missing-code")
+        elif not ok_syn:
+            issues.append("code-syntax")
     ok = len(issues) == 0
     note = "OK" if ok else ("Issues: " + ", ".join(issues))
     return (not ok), note

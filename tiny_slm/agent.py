@@ -77,6 +77,10 @@ def build_plan(goal: str, need: List[str] | None = None) -> List[str]:
         steps.append("memory")
     if any(w in g for w in ("compare", "versus", "vs")):
         steps.append("compare")
+    # Coding / long builds: memory scratch + reason (templates verify elsewhere)
+    if any(w in g for w in ("python", "function", "implement", "tkinter", "script", "code")):
+        steps.append("memory")
+        steps.append("reason")
     if not steps:
         steps = ["memory", "reason"]
     else:
@@ -86,7 +90,7 @@ def build_plan(goal: str, need: List[str] | None = None) -> List[str]:
     for s in steps:
         if s not in out:
             out.append(s)
-    return out[:4]
+    return out[:5]
 
 
 def run_agent_tools(

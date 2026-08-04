@@ -42,6 +42,7 @@ from tiny_slm.search import (
 from tiny_slm.swarm import run_swarm, should_spawn_swarm
 from tiny_slm.tokenizer import TinyTokenizer
 from tiny_slm.traces import TraceStore
+from tiny_slm.tvs import evidence_quorum, run_tvs
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CKPT = ROOT / "checkpoints" / "tinyslm.pt"
@@ -301,6 +302,28 @@ class TinyChat:
         if route.action == "abstain" and route.message:
             return _abstain(route.message)
 
+        # Thought-Verify Scratchpad for math/code/search/agent (novel fail-closed loop)
+        if use_grounded and (
+            route.action in ("agent", "search")
+            or ir.mode in ("math", "code", "search", "plan", "long_task", "swarm")
+        ):
+            use_net = route.action == "search" or ir.mode == "search" or force_search
+            tvs = run_tvs(
+                user,
+                memory_retrieve=lambda q: self.memory.retrieve(q, top_k=4, max_chars=600),
+                auto_search=bool(use_net and (self.auto_search or force_search)),
+            )
+            if tvs.ok and tvs.answer:
+                header = [f"[ir] {ir_tag}", tvs.header()]
+                display = "\n".join(header) + f"\n\n[model]\n{tvs.answer}"
+                clean = _clean_for_history(tvs.answer)
+                self.history.append((user, clean))
+                self.memory.add_turn(user, clean)
+                self._trace(user, tvs.answer, ir, f"tvs-{tvs.domain}")
+                return display, search_digest
+            if tvs.abstained and route.action == "search":
+                return _abstain(tvs.answer, "tvs-search")
+
         if use_grounded:
             # Extractive memory reply (no training) — tiny nets rarely copy rare codes
             if mem_direct:
@@ -472,14 +495,22 @@ class TinyChat:
             and (should_run_stage(ir, "search") or needs_search(user))
         )
         if want_search:
-            search_digest = self._cached_search(user, max_results=4)
-            web_ans = answer_from_search(search_digest, query=user)
+            search_digest = self._cached_search(user, max_results=5)
+            ok_q, web_ans, q_note = evidence_quorum(search_digest, user, min_hits=2)
+            if not ok_q:
+                # Soft fallback to classic extractive if quorum barely misses
+                web_ans = answer_from_search(search_digest, query=user)
+                q_note = "extractive-fallback" if web_ans else q_note
             if web_ans and (
                 should_prefer_web_answer(user)
                 or route.action == "search"
                 or force_search
+                or ok_q
             ):
-                display = f"[ir] {ir_tag}\n[web]\n{search_digest}\n\n[model]\n{web_ans}"
+                display = (
+                    f"[ir] {ir_tag}\n[web] evidence={q_note}\n{search_digest}\n\n"
+                    f"[model]\n{web_ans}"
+                )
                 clean = _clean_for_history(web_ans)
                 self.history.append((user, clean))
                 self.memory.add_turn(user, clean)
@@ -493,9 +524,9 @@ class TinyChat:
             if route.action == "search" or force_search:
                 # Search was the intended path — abstain rather than hallucinate
                 msg = (
-                    "I tried the web but could not verify a reliable answer. "
-                    "I will not guess. Please rephrase, name a source, or ask a "
-                    "checkable math/code/plan question instead."
+                    "I tried the web but could not verify a reliable answer "
+                    f"(evidence={q_note}). I will not guess. Please rephrase, "
+                    "name a source, or ask a checkable math/code/plan question instead."
                 )
                 return _abstain(msg, "search-miss")
 
