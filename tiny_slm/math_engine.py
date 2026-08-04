@@ -381,6 +381,14 @@ def _extract_expr_blob(text: str) -> Optional[str]:
         if 1 <= n <= 12:
             return f"series({expr}, {var}, {point}, {n})"
 
+    # jacobian of [f,g] w.r.t. [x,y]  — tagged for dedicated solver
+    m = re.search(
+        r"jacobian\s+of\s*\[(.+?)\]\s*(?:w\.?r\.?t\.?|with respect to)\s*\[(.+?)\]",
+        low,
+    )
+    if m:
+        return f"__jacobian__[{m.group(1)}][{m.group(2)}]"
+
     # summation: sum k=1 to n of k**2
     m = re.search(
         r"sum(?:mation)?\s+([a-z])\s*=\s*(\d+)\s+to\s+(\d+)\s+of\s+(.+)$",
@@ -542,6 +550,33 @@ def try_solve_math_once(text: str) -> Optional[str]:
             if m:
                 mat = sp.Matrix(sp.sympify(m.group(1)))
                 return f"Verified (symbolic): {mat.eigenvals()}."
+        except Exception:
+            return None
+    # jacobian of vector-valued map
+    if blob.startswith("__jacobian__") and _HAS_SYMPY:
+        try:
+            m = re.match(r"__jacobian__\[(.+)\]\[(.+)\]$", blob)
+            if m:
+                funcs = [s.strip() for s in m.group(1).split(",")]
+                vars_ = [s.strip() for s in m.group(2).split(",")]
+                if 1 <= len(funcs) <= 4 and 1 <= len(vars_) <= 4:
+                    local_dict = _sympy_locals()
+                    F = sp.Matrix(
+                        [
+                            parse_expr(
+                                f,
+                                local_dict=local_dict,
+                                transformations=_TRANSFORMS,
+                                evaluate=True,
+                            )
+                            for f in funcs
+                        ]
+                    )
+                    X = sp.Matrix(
+                        [sp.Symbol(v) if len(v) == 1 else parse_expr(v, local_dict=local_dict) for v in vars_]
+                    )
+                    J = F.jacobian(X)
+                    return f"Verified (symbolic): {J}."
         except Exception:
             return None
     # series(expr, var, point, n) — parse_expr can mishandle Order terms

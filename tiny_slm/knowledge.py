@@ -237,8 +237,15 @@ _FAQ: List[Tuple[List[str], str]] = [
         "Attention lets a model weigh which parts of the input matter most when building each output.",
     ),
     (
-        ["what is a transformer", "what's a transformer model"],
-        "A Transformer is a neural architecture that uses attention layers to model sequences efficiently.",
+        [
+            "what is a transformer",
+            "what's a transformer model",
+            "what a transformer model is",
+            "transformer model is and why attention",
+            "explain what a transformer",
+        ],
+        "A Transformer is a neural architecture that uses attention layers to model sequences efficiently. "
+        "Attention matters because it lets the model weigh which tokens are most relevant for each prediction.",
     ),
     (
         ["what is an api", "what's an api", "what is api"],

@@ -36,6 +36,19 @@ def test_code_tvs_and_micro_exec() -> None:
         "Write a Python function that adds two numbers.",
     )
     assert not bad
+    bank = (
+        "class BankAccount:\n"
+        "    def __init__(self, balance=0):\n"
+        "        self.balance = balance\n"
+        "    def deposit(self, amount):\n"
+        "        self.balance += amount\n"
+        "    def withdraw(self, amount):\n"
+        "        if amount > self.balance:\n"
+        "            raise ValueError('overdraft')\n"
+        "        self.balance -= amount\n"
+    )
+    okb, noteb = run_spec_asserts(bank, "Write a BankAccount class with deposit and withdraw.")
+    assert okb and noteb.startswith("spec-assert"), noteb
 
 
 def test_evidence_quorum() -> None:

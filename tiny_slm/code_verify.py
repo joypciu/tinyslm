@@ -63,10 +63,13 @@ def looks_like_prose(text: str) -> bool:
     return bool(re.search(r"[.!?]", t)) and not re.search(r"[=\[\]{}():]", t)
 
 
-def _infer_spec_asserts(user: str, fn_names: List[str]) -> List[str]:
+def _infer_spec_asserts(
+    user: str, fn_names: List[str], class_names: List[str]
+) -> List[str]:
     """Derive tiny behavioral asserts from the user ask (Spec-Assert Coding)."""
     u = (user or "").lower()
     names = set(fn_names)
+    classes = set(class_names)
     asserts: List[str] = []
     if "add" in names and any(w in u for w in ("add", "adds", "sum two")):
         asserts.append("assert add(2, 3) == 5")
@@ -79,11 +82,23 @@ def _infer_spec_asserts(user: str, fn_names: List[str]) -> List[str]:
     if "fib" in names or "fibonacci" in u:
         if "fib" in names:
             asserts.extend(["assert fib(0) == 0", "assert fib(1) == 1", "assert fib(6) == 8"])
+    # Class Spec-Assert: BankAccount deposit/withdraw
+    if "BankAccount" in classes or "bankaccount" in u.replace(" ", ""):
+        if "BankAccount" in classes:
+            asserts.extend(
+                [
+                    "a = BankAccount(10)",
+                    "a.deposit(5)",
+                    "assert a.balance == 15",
+                    "a.withdraw(3)",
+                    "assert a.balance == 12",
+                ]
+            )
     return asserts
 
 
 def run_spec_asserts(code: str, user: str = "") -> Tuple[bool, str]:
-    """Syntax + optional Spec-Assert micro-tests for known pure functions."""
+    """Syntax + optional Spec-Assert micro-tests for known pure functions/classes."""
     ok, note = verify_python_syntax(code)
     if not ok:
         return False, note
@@ -102,15 +117,23 @@ def run_spec_asserts(code: str, user: str = "") -> Tuple[bool, str]:
     except SyntaxError as exc:
         return False, f"syntax-error: {exc.msg}"
     fn_names = [n.name for n in tree.body if isinstance(n, ast.FunctionDef)]
-    asserts = _infer_spec_asserts(user, fn_names)
+    class_names = [n.name for n in tree.body if isinstance(n, ast.ClassDef)]
+    asserts = _infer_spec_asserts(user, fn_names, class_names)
     if not asserts:
         return True, note
-    ns: dict = {"__builtins__": {
-        "range": range, "len": len, "min": min, "max": max, "sum": sum,
-        "abs": abs, "enumerate": enumerate, "list": list, "dict": dict,
-        "str": str, "int": int, "float": float, "bool": bool,
-        "None": None, "True": True, "False": False,
-    }}
+    ns: dict = {
+        "__name__": "__spec_assert__",
+        "__builtins__": {
+            "range": range, "len": len, "min": min, "max": max, "sum": sum,
+            "abs": abs, "enumerate": enumerate, "list": list, "dict": dict,
+            "str": str, "int": int, "float": float, "bool": bool,
+            "None": None, "True": True, "False": False,
+            "ValueError": ValueError, "Exception": Exception,
+            "isinstance": isinstance, "type": type, "object": object,
+            "__build_class__": __build_class__,
+            "__name__": "__spec_assert__",
+        },
+    }
     try:
         exec(compile(tree, "<spec>", "exec"), ns, ns)
         for line in asserts:

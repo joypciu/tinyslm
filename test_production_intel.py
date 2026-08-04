@@ -23,6 +23,8 @@ def test_basic_and_symbolic_math() -> None:
     assert ans4 and ("-1" in ans4 and "3" in ans4), ans4
     ans5 = try_solve_math("taylor series of sin(x) around 0 order 5")
     assert ans5 and ("x" in ans5) and ("x**3" in ans5.replace(" ", "") or "x^3" in ans5), ans5
+    ans6 = try_solve_math("jacobian of [x**2*y, x+y] w.r.t. [x, y]")
+    assert ans6 and ("2" in ans6) and ("Matrix" in ans6 or "[" in ans6), ans6
     action_pde, _ = math_policy("Solve the Navier-Stokes PDE for my thesis.")
     assert action_pde == "abstain"
 
