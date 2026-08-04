@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
-from tiny_slm.agent import run_agent_tools
-from tiny_slm.contracts import best_contract_answer, contract_memory, contract_search
+from tiny_slm.agent import build_plan, run_agent_tools
+from tiny_slm.contracts import (
+    ContractResult,
+    best_contract_answer,
+    contract_compare,
+    contract_memory,
+    contract_search,
+    synthesize_from_contracts,
+)
 
 
 def test_search_contract_quorum() -> None:
@@ -89,6 +96,54 @@ def test_agent_tools_contract_lines() -> None:
     assert st.steps_done >= 1
 
 
+def test_ir_need_shapes_plan() -> None:
+    plan = build_plan("tell me something", need=["search", "reason"])
+    assert plan[0] == "search"
+    assert "reason" in plan
+
+
+def test_synthesize_from_pass_contracts() -> None:
+    ans = synthesize_from_contracts(
+        [
+            ContractResult("memory", True, "noise " * 30, "context-only"),
+            ContractResult(
+                "search",
+                True,
+                "From the web: Ada Lovelace pioneered computing.",
+                "evidence-quorum quorum=2",
+            ),
+        ],
+        "Who was Ada?",
+    )
+    assert ans and "Ada" in ans
+
+
+def test_contract_compare_sides() -> None:
+    cr = contract_compare(
+        "Compare France and Japan capitals.",
+        [
+            ContractResult(
+                "search",
+                True,
+                "France capital Paris. Japan capital Tokyo.",
+                "evidence-quorum",
+            )
+        ],
+    )
+    assert cr.ok and "France" in cr.artifact and "Japan" in cr.artifact
+
+
+def test_agent_memory_need() -> None:
+    ctx, st = run_agent_tools(
+        "Using memory, what is the launch code?",
+        memory_retrieve=lambda q: "FACT from user: launch code is ORBIT-77 for Friday.",
+        auto_search=False,
+        need=["memory", "reason"],
+    )
+    assert "memory" in st.plan
+    assert st.verified_answer and "ORBIT" in st.verified_answer.upper()
+
+
 def main() -> None:
     tests = [
         test_search_contract_quorum,
@@ -98,6 +153,10 @@ def main() -> None:
         test_repair_memory_query,
         test_best_answer_prefers_search,
         test_agent_tools_contract_lines,
+        test_ir_need_shapes_plan,
+        test_synthesize_from_pass_contracts,
+        test_contract_compare_sides,
+        test_agent_memory_need,
     ]
     fails = []
     for fn in tests:

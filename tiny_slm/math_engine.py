@@ -1139,18 +1139,98 @@ def try_solve_math_once(text: str) -> Optional[str]:
     return f"Verified (symbolic): {out}."
 
 
+def try_proof_sketch(text: str) -> Optional[str]:
+    """Checkable identity sketch: prove/show that lhs = rhs via SymPy + spot checks.
+
+    Never claims a formal proof. Open research (Riemann, Navier-Stokes, etc.)
+    still abstains via math_policy.
+    """
+    if not _HAS_SYMPY:
+        return None
+    raw = (text or "").strip()
+    low = raw.lower()
+    if not re.search(r"\b(prove|show that|verify that|identity)\b", low):
+        return None
+    # Hard research cues → refuse sketch (not machine-checkable)
+    if re.search(
+        r"\b(riemann|navier|hypothesis|conjecture|pde|schrodinger|galois)\b",
+        low,
+    ):
+        return None
+    # Extract equality: "prove that sin(x)**2 + cos(x)**2 = 1"
+    m = re.search(
+        r"(?:prove|show|verify)(?:\s+that)?\s+(.+?)\s*=\s*(.+?)(?:\s*[.?!]|$)",
+        raw,
+        re.I,
+    )
+    if not m:
+        return None
+    left_s, right_s = m.group(1).strip(), m.group(2).strip(" .?!")
+    if _UNSAFE.search(left_s) or _UNSAFE.search(right_s):
+        return None
+    if len(left_s) > 120 or len(right_s) > 120:
+        return None
+    try:
+        local_dict = _sympy_locals()
+        left = parse_expr(
+            left_s, local_dict=local_dict, transformations=_TRANSFORMS, evaluate=True
+        )
+        right = parse_expr(
+            right_s, local_dict=local_dict, transformations=_TRANSFORMS, evaluate=True
+        )
+        diff = sp.simplify(sp.expand(left - right))
+        if diff != 0:
+            # Trig identities often need trigsimp
+            diff = sp.simplify(sp.trigsimp(left - right))
+        if diff != 0:
+            return None
+        # Numeric spot checks on free symbols
+        syms = sorted(left.free_symbols | right.free_symbols, key=str)
+        spots = []
+        if not syms:
+            spots.append("constant identity")
+        else:
+            for val in (0, 1, sp.pi / 6):
+                subs = {s: val for s in syms[:3]}
+                try:
+                    lv = complex(sp.N(left.subs(subs)))
+                    rv = complex(sp.N(right.subs(subs)))
+                    if abs(lv - rv) > 1e-8:
+                        return None
+                    spots.append(f"{ {str(s): str(val) for s in subs} }")
+                except Exception:
+                    continue
+                if len(spots) >= 2:
+                    break
+        sketch = (
+            f"Verified sketch (not a formal proof): simplify(({left_s}) - ({right_s})) = 0. "
+            f"Spot checks OK ({'; '.join(spots[:2])}). "
+            f"Lemma: the algebraic/trig difference reduces identically to 0 under SymPy."
+        )
+        return sketch
+    except Exception:
+        return None
+
+
 def try_solve_math(text: str) -> Optional[str]:
     """Return a verified math answer string, or None if not checkable."""
     if re.search(r"\bthen\b", text or "", re.I):
         hop = _try_multihop(text)
         if hop:
             return hop
-    return try_solve_math_once(text)
+    once = try_solve_math_once(text)
+    if once:
+        return once
+    return try_proof_sketch(text)
 
 
 def math_policy(text: str) -> Tuple[str, Optional[str]]:
     """Return (action, answer) where action is solve|abstain|not_math."""
     if not looks_like_math(text):
+        # Prove-that identities still count as math even without operator cues
+        sketch = try_proof_sketch(text)
+        if sketch:
+            return "solve", sketch
         return "not_math", None
     ans = try_solve_math(text)
     if ans:

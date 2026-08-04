@@ -53,6 +53,12 @@ def test_store_roundtrip(tmp_path: Path | None = None) -> None:
         mode="abstain",
         source="abstain",
     )
+    assert not store.record(
+        "Hello",
+        "Continue chatting with me to data text in Python.",
+        mode="chat",
+        source="neural",
+    )
     rows = store.load()
     assert len(rows) == 1
     assert rows[0].mode == "math"

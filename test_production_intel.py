@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from tiny_slm.code_verify import require_verified_code, verify_python_syntax
-from tiny_slm.math_engine import looks_like_research_math, math_policy, try_solve_math
+from tiny_slm.math_engine import (
+    looks_like_research_math,
+    math_policy,
+    try_proof_sketch,
+    try_solve_math,
+)
 from tiny_slm.policy import decide_route
 
 
@@ -76,6 +81,23 @@ def test_code_card_routing() -> None:
     assert r2.action == "grounded"
 
 
+def test_example_driven_spec_assert() -> None:
+    from tiny_slm.code_verify import parse_io_examples, run_spec_asserts
+
+    ex = parse_io_examples("Write mul such that mul(3, 4) -> 12 and mul(2, 5) -> 10")
+    assert len(ex) >= 2
+    ok, note = run_spec_asserts(
+        "def mul(a, b):\n    return a * b\n",
+        "Write mul such that mul(3, 4) -> 12",
+    )
+    assert ok and note.startswith("spec-assert"), note
+    bad, _ = run_spec_asserts(
+        "def mul(a, b):\n    return a + b\n",
+        "mul(3, 4) -> 12",
+    )
+    assert not bad
+
+
 def test_research_math_abstains() -> None:
     assert looks_like_research_math("Prove the Riemann hypothesis rigorously.")
     action, ans = math_policy("Prove the Riemann hypothesis rigorously.")
@@ -83,6 +105,14 @@ def test_research_math_abstains() -> None:
     r = decide_route("Prove Navier-Stokes smoothness for my PhD thesis.", auto_search=False)
     assert r.action == "abstain"
     assert r.message and "will not invent" in r.message.lower() or "checkable" in r.message.lower()
+
+
+def test_proof_sketch_identity() -> None:
+    sketch = try_proof_sketch("Prove that sin(x)**2 + cos(x)**2 = 1")
+    assert sketch and "Verified sketch" in sketch
+    action, ans = math_policy("Prove that sin(x)**2 + cos(x)**2 = 1")
+    assert action == "solve" and ans and "sketch" in ans.lower()
+    assert try_proof_sketch("Prove the Riemann hypothesis") is None
 
 
 def test_router_actions() -> None:
@@ -147,8 +177,10 @@ def main() -> None:
     tests = [
         test_basic_and_symbolic_math,
         test_research_math_abstains,
+        test_proof_sketch_identity,
         test_router_actions,
         test_code_card_routing,
+        test_example_driven_spec_assert,
         test_code_verify,
         test_chat_math_and_abstain,
         test_chat_coding_verified,

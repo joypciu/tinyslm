@@ -19,6 +19,12 @@ def test_math_tvs() -> None:
     assert r2.abstained
 
 
+def test_agent_tvs_defers_research() -> None:
+    r = run_tvs("Investigate the latest Python release deeply.", auto_search=False)
+    assert not r.ok and not r.abstained
+    assert any(s.detail == "defer-to-sara" for s in r.steps)
+
+
 def test_code_tvs_and_micro_exec() -> None:
     from tiny_slm.code_verify import run_spec_asserts
 
@@ -86,6 +92,7 @@ def main() -> None:
     tests = [
         test_domains,
         test_math_tvs,
+        test_agent_tvs_defers_research,
         test_code_tvs_and_micro_exec,
         test_evidence_quorum,
         test_chat_tvs_header,

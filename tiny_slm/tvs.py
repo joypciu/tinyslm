@@ -232,6 +232,12 @@ def classify_domain(user: str) -> str:
     # Explicit web intent beats code keyword collisions ("search … python …")
     if any(w in u for w in ("search", "look up", "from the web", "on the internet", "google")):
         return "search"
+    # Research/agent verbs before code keywords ("investigate … python …")
+    if any(
+        w in u
+        for w in ("step by step", "plan", "break down", "multi-step", "research", "investigate")
+    ):
+        return "agent"
     if any(
         w in u
         for w in (
@@ -248,11 +254,6 @@ def classify_domain(user: str) -> str:
         return "code"
     if needs_search(user):
         return "search"
-    if any(
-        w in u
-        for w in ("step by step", "plan", "break down", "multi-step", "research", "investigate")
-    ):
-        return "agent"
     if any(w in u for w in ("remember", "using memory", "earlier")):
         return "memory"
     return "general"
@@ -377,19 +378,21 @@ def run_tvs(
         )
 
     # --- AGENT / PLAN ---
+    # Plan cards stay here; research/tool-heavy agent asks defer to SARA contracts
     if domain == "agent":
-        steps.append(TVSStep("ACT", "plan-card"))
-        plan = answer_from_plan_template(user) or answer_from_code_template(user)
+        steps.append(TVSStep("ACT", "plan-card-or-defer"))
+        plan = answer_from_plan_template(user)
         if plan:
-            if "def " in plan or "class " in plan:
-                ok_syn, syn_note = verify_python_syntax(plan)
-                steps.append(TVSStep("VERIFY", syn_note))
-                if not ok_syn:
-                    return TVSResult(False, "Plan/code failed verification.", domain, steps, True)
-            else:
-                steps.append(TVSStep("VERIFY", "steps-present" if re.search(r"\b1[\)\.]", plan) else "plan-text"))
+            steps.append(
+                TVSStep(
+                    "VERIFY",
+                    "steps-present" if re.search(r"\b1[\)\.]", plan) else "plan-text",
+                )
+            )
             steps.append(TVSStep("ANSWER", "agent-plan"))
             return TVSResult(True, plan, domain, steps)
+        steps.append(TVSStep("VERIFY", "defer-to-sara"))
+        return TVSResult(False, "", domain, steps, abstained=False)
 
     # --- GENERAL grounded cards ---
     steps.append(TVSStep("ACT", "faq-card"))

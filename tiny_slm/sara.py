@@ -170,6 +170,7 @@ def run_sara(
     memory_retrieve: Callable[[str], str],
     auto_search: bool = True,
     force_agent: bool = False,
+    need: Optional[List[str]] = None,
 ) -> SaraState:
     state = SaraState(goal=goal)
     state.skills = select_skills(goal)
@@ -209,7 +210,10 @@ def run_sara(
     tool_block = ""
     if force_agent or looks_agentic(goal):
         tool_block, agent_state = run_agent_tools(
-            goal, memory_retrieve=memory_retrieve, auto_search=auto_search
+            goal,
+            memory_retrieve=memory_retrieve,
+            auto_search=auto_search,
+            need=need,
         )
         state.agent = agent_state
         # Prefer contracted verified artifact (search/swarm/memory) — no free invent

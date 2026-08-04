@@ -7,6 +7,7 @@ from synthesis so the agent cannot launder empty search into a fluent lie.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -79,6 +80,91 @@ def contract_swarm(answer: str, digest: str) -> ContractResult:
     )
 
 
+def contract_compare(goal: str, evidence: List[ContractResult]) -> ContractResult:
+    """Structured two-sided compare from PASS evidence (fail-closed if none)."""
+    parts = re.split(r"\bvs\.?\b|\bversus\b|\bcompare\b", goal or "", flags=re.I)
+    sides = [p.strip(" ?.") for p in parts if p.strip(" ?.")]
+    if len(sides) < 2:
+        # "Compare A and B"
+        m = re.search(
+            r"compare\s+(.+?)\s+and\s+(.+?)(?:\s*[.?]|$)",
+            goal or "",
+            re.I,
+        )
+        if m:
+            sides = [m.group(1).strip(), m.group(2).strip()]
+    if len(sides) < 2:
+        return ContractResult("compare", False, "", "sides-unparsed")
+
+    a_side, b_side = sides[0][:80], sides[1][:80]
+    ok_ev = [
+        r
+        for r in evidence
+        if r.ok and r.artifact.strip() and r.step in ("search", "swarm", "memory")
+        and r.proof != "context-only"
+    ]
+    if not ok_ev:
+        # Still emit a structured outline so reason can ask for evidence
+        outline = f"A: {a_side}. B: {b_side}. Contrast: need verified evidence for both sides."
+        return ContractResult("compare", True, outline, "sides-parsed-no-evidence")
+
+    bits = []
+    for r in ok_ev[:2]:
+        snippet = re.sub(r"\s+", " ", r.artifact.strip())[:220]
+        bits.append(snippet)
+    body = (
+        f"A ({a_side}): {bits[0]}"
+        + (f" B ({b_side}): {bits[1]}" if len(bits) > 1 else f" B ({b_side}): (limited evidence)")
+    )
+    return ContractResult("compare", True, body[:900], f"evidence-sides={len(bits)}")
+
+
+def synthesize_from_contracts(results: List[ContractResult], goal: str = "") -> Optional[str]:
+    """Merge PASS artifacts into one grounded answer; None if nothing verifiable."""
+    ok = [
+        r
+        for r in results
+        if r.ok
+        and r.artifact.strip()
+        and not (r.step == "memory" and r.proof == "context-only")
+        and r.step != "reason"
+    ]
+    if not ok:
+        return None
+
+    # Prefer a single strong extractive hit
+    for r in ok:
+        if r.step in ("search", "swarm") and (
+            r.proof.startswith("evidence-quorum")
+            or r.proof.startswith("cited")
+            or "extract" in r.proof
+        ):
+            return r.artifact.strip()[:900]
+
+    # Compare-shaped answer
+    cmp = next((r for r in ok if r.step == "compare"), None)
+    mem = next((r for r in ok if r.step == "memory"), None)
+    web = next((r for r in ok if r.step in ("search", "swarm")), None)
+
+    if cmp and (web or mem):
+        parts = [cmp.artifact.strip()]
+        if web:
+            parts.append(web.artifact.strip()[:320])
+        return " ".join(parts)[:900]
+
+    if cmp and "need verified evidence" not in cmp.artifact.lower():
+        return cmp.artifact.strip()[:900]
+
+    if mem:
+        return mem.artifact.strip()[:900]
+
+    if web:
+        return web.artifact.strip()[:900]
+
+    # Last resort: best single artifact
+    return best_contract_answer(results)
+
+
 def best_contract_answer(results: List[ContractResult]) -> Optional[str]:
     """Prefer extractive search/memory/swarm artifacts over empty reason steps."""
     priority = {"search": 3, "swarm": 3, "memory": 2, "compare": 1}
@@ -91,6 +177,11 @@ def best_contract_answer(results: List[ContractResult]) -> Optional[str]:
         # Don't ship raw memory dump as the user-facing answer
         for r in ok:
             if r.step in ("search", "swarm") and r.proof != "context-only":
+                return r.artifact
+        return None
+    if top.step == "compare" and "need verified evidence" in top.artifact.lower():
+        for r in ok:
+            if r.step in ("search", "swarm", "memory") and r.proof != "context-only":
                 return r.artifact
         return None
     return top.artifact

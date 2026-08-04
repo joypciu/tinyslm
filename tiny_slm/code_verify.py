@@ -63,6 +63,30 @@ def looks_like_prose(text: str) -> bool:
     return bool(re.search(r"[.!?]", t)) and not re.search(r"[=\[\]{}():]", t)
 
 
+def parse_io_examples(user: str) -> List[Tuple[str, str, str]]:
+    """Parse example I/O from the user ask → (fn_hint, call_args, expected).
+
+    Supports: f(1, 2) -> 3 | example: add(2, 3) -> 5 | add(2, 3) => 5
+    """
+    u = user or ""
+    out: List[Tuple[str, str, str]] = []
+    # Expected: short literal only so "f(1)->2 and f(3)->4" yields two examples
+    lit = (
+        r"(?:[-+]?\d+(?:\.\d+)?|None|True|False|"
+        r"'[^']*'|\"[^\"]*\"|\[[^\]]*\]|\{[^}]*\})"
+    )
+    for m in re.finditer(
+        rf"(?:example\s*:?\s*)?([a-zA-Z_]\w*)\s*\(([^)]*)\)\s*(?:->|=>|=)\s*({lit})",
+        u,
+        re.I,
+    ):
+        fn, args, exp = m.group(1), m.group(2).strip(), m.group(3).strip()
+        if fn.lower() in ("e", "g", "eg", "example"):
+            continue
+        out.append((fn, args, exp))
+    return out[:6]
+
+
 def _infer_spec_asserts(
     user: str, fn_names: List[str], class_names: List[str]
 ) -> List[str]:
@@ -71,16 +95,36 @@ def _infer_spec_asserts(
     names = set(fn_names)
     classes = set(class_names)
     asserts: List[str] = []
+
+    # Example-driven TDD: user-provided I/O beats hardwired cards
+    for fn, args, exp in parse_io_examples(user):
+        if fn_names and fn not in names and fn.lower() not in {n.lower() for n in names}:
+            # Map to the only function if names don't match exactly
+            if len(fn_names) == 1:
+                fn = fn_names[0]
+            else:
+                continue
+        elif fn not in names and len(fn_names) == 1:
+            fn = fn_names[0]
+        # Normalize expected None / True / False / quotes
+        exp_n = exp.strip()
+        if re.fullmatch(r"none", exp_n, re.I):
+            exp_n = "None"
+        elif re.fullmatch(r"true|false", exp_n, re.I):
+            exp_n = exp_n.capitalize()
+        asserts.append(f"assert {fn}({args}) == {exp_n}")
+
     if "add" in names and any(w in u for w in ("add", "adds", "sum two")):
-        asserts.append("assert add(2, 3) == 5")
+        if not any("add(" in a for a in asserts):
+            asserts.append("assert add(2, 3) == 5")
     if "safe_div" in names or ("div" in u and "zero" in u):
-        if "safe_div" in names:
+        if "safe_div" in names and not any("safe_div" in a for a in asserts):
             asserts.extend(["assert safe_div(10, 2) == 5", "assert safe_div(10, 0) is None"])
     if "word_count" in names or "word count" in u:
-        if "word_count" in names:
+        if "word_count" in names and not any("word_count" in a for a in asserts):
             asserts.append("assert word_count('a a b') == {'a': 2, 'b': 1}")
     if "fib" in names or "fibonacci" in u:
-        if "fib" in names:
+        if "fib" in names and not any("fib(" in a for a in asserts):
             asserts.extend(["assert fib(0) == 0", "assert fib(1) == 1", "assert fib(6) == 8"])
     # Class Spec-Assert: BankAccount deposit/withdraw
     if "BankAccount" in classes or "bankaccount" in u.replace(" ", ""):
@@ -94,7 +138,14 @@ def _infer_spec_asserts(
                     "assert a.balance == 12",
                 ]
             )
-    return asserts
+    # Dedupe while preserving order
+    seen = set()
+    uniq: List[str] = []
+    for a in asserts:
+        if a not in seen:
+            seen.add(a)
+            uniq.append(a)
+    return uniq
 
 
 def run_spec_asserts(code: str, user: str = "") -> Tuple[bool, str]:

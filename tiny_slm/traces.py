@@ -99,8 +99,11 @@ class TraceStore:
             return False
         if not (user or "").strip():
             return False
-        # Never log abstain paths into the distill fuel
-        if mode_s.strip().lower() in _SKIP_MODES or (source or "").lower().startswith("abstain"):
+        # Never log abstain / neural drafts into the distill fuel
+        src_l = (source or "").lower().strip()
+        if mode_s.strip().lower() in _SKIP_MODES or src_l.startswith("abstain"):
+            return False
+        if src_l == "neural" or src_l.startswith("neural"):
             return False
         trace = SuccessTrace(
             user=user.strip()[:500],
@@ -162,7 +165,9 @@ def traces_to_chat_corpus(
     items = [
         t
         for t in traces
-        if t.user.strip() and looks_distillable(t.answer, mode=t.mode)
+        if t.user.strip()
+        and looks_distillable(t.answer, mode=t.mode)
+        and not (t.source or "").lower().startswith("neural")
     ]
     items = items[-max_items:]
     blocks: List[str] = []

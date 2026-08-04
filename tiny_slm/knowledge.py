@@ -737,7 +737,15 @@ def answer_from_code_template(user: str) -> Optional[str]:
             score += 800
         if best is None or score > best[0]:
             best = (score, ans)
-    return best[1] if best else None
+    if best:
+        return best[1]
+    # Creative scaffold when no card matches (still fail-closed via Spec-Assert)
+    try:
+        from tiny_slm.scaffold import compose_scaffold
+
+        return compose_scaffold(user)
+    except Exception:
+        return None
 
 # country key -> (display name, capital)
 _CAPITALS = {

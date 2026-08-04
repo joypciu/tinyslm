@@ -562,6 +562,7 @@ class TinyChat:
                 memory_retrieve=lambda q: self.memory.retrieve(q, top_k=4, max_chars=600),
                 auto_search=self.auto_search or force_search,
                 force_agent=force_agent or looks_agentic(user) or route.action == "agent",
+                need=list(ir.need or []),
             )
             reply = scrub_generation(sara.final or "")
             # Coding asks must pass syntax verification
