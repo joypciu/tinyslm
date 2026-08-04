@@ -559,6 +559,11 @@ def _extract_expr_blob(text: str) -> Optional[str]:
     if m:
         return f"__lcm__{m.group(1)},{m.group(2)}"
 
+    # exp / e^x
+    m = re.search(r"(?:exp|e\s*\^\s*|e\s*\*\*\s*)\(?\s*([^\s)]+)\s*\)?", low)
+    if m and not re.search(r"expect|explain|example", low):
+        return f"exp({m.group(1).strip()})"
+
     # log / ln / log10
     m = re.search(r"(?:natural log|ln)\s*(?:of\s*)?\(?\s*([^\s)]+)\s*\)?", low)
     if m and "log10" not in low:

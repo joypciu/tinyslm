@@ -58,6 +58,7 @@ def test_basic_and_symbolic_math() -> None:
     assert ans15 and ("5" in ans15) and ("I" in ans15 or "i" in ans15.lower()), ans15
     assert "2" in (try_solve_math("log10 of 100") or "")
     assert "0" in (try_solve_math("ln of 1") or "")
+    assert "1" in (try_solve_math("exp(0)") or "")
     action_pde, _ = math_policy("Solve the Navier-Stokes PDE for my thesis.")
     assert action_pde == "abstain"
 
