@@ -7,7 +7,7 @@ every fact into memory: distill decision patterns + verified skills.
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-OUT = ROOT / "data" / "production_intelligence.txt"
+OUT = ROOT / "data" / "production_router.txt"
 
 TEXT = r"""
 <bos><user>What is 2 + 2?<eos>
