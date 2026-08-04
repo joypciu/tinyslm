@@ -134,7 +134,10 @@ def evidence_quorum(digest: str, query: str, *, min_hits: int = 2) -> Tuple[bool
     ans = "From the web: " + uniq[0]
     if len(uniq) > 1:
         ans += " Also: " + uniq[1]
-    return True, ans[:480], f"quorum={len(uniq)}"
+    from tiny_slm.search import attach_citations
+
+    ans = attach_citations(ans, text, max_chars=520)
+    return True, ans, f"quorum={len(uniq)}"
 
 
 def safe_micro_exec(code: str, *, timeout_s: float = 0.4) -> Tuple[bool, str]:

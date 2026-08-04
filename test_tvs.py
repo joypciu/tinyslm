@@ -38,6 +38,7 @@ def test_evidence_quorum() -> None:
     ok, ans, note = evidence_quorum(digest, "latest Python release", min_hits=2)
     assert ok, (ok, ans, note)
     assert "python" in ans.lower()
+    assert "Sources:" in ans and "example.com" in ans
     bad_ok, _, bad_note = evidence_quorum(
         "1. Cooking pasta\nhttps://x\nBoil water and add salt.\n",
         "latest Python release",

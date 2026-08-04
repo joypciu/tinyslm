@@ -248,10 +248,47 @@ def _best_sentences(text: str, limit: int = 2) -> List[str]:
     return [p for _, p in out[:limit]]
 
 
+def extract_citations(digest: str, *, limit: int = 3) -> List[str]:
+    """Pull title + URL pairs from a search digest (citation ledger)."""
+    text = (digest or "").strip()
+    if not text or text.startswith("("):
+        return []
+    cites: List[str] = []
+    for block in re.split(r"\n\s*\n", text):
+        lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
+        if not lines:
+            continue
+        title = re.sub(r"^\d+\.\s*", "", lines[0]).strip()
+        url = next((ln for ln in lines[1:] if ln.startswith("http")), "")
+        if title and url:
+            cites.append(f"{title} <{url}>")
+        elif title and len(title) > 8:
+            cites.append(title)
+        if len(cites) >= limit:
+            break
+    return cites
+
+
+def attach_citations(answer: str, digest: str, *, max_chars: int = 520) -> str:
+    """Append a short Sources ledger so web answers stay auditable."""
+    ans = (answer or "").strip()
+    if not ans:
+        return ""
+    if "Sources:" in ans:
+        return ans[:max_chars]
+    cites = extract_citations(digest, limit=3)
+    if not cites:
+        return ans[:max_chars]
+    ledger = " Sources: " + "; ".join(cites)
+    out = ans.rstrip() + ledger
+    return out[:max_chars]
+
+
 def answer_from_search(
     digest: str,
     max_chars: int = 420,
     query: str = "",
+    with_citations: bool = True,
 ) -> str:
     """Build a grounded multi-snippet reply from a DuckDuckGo digest."""
     text = (digest or "").strip()
@@ -299,7 +336,8 @@ def answer_from_search(
             break
 
     if not uniq and titles:
-        return f"From the web: {titles[0]}."[:max_chars]
+        out = f"From the web: {titles[0]}."
+        return attach_citations(out, text, max_chars=max_chars) if with_citations else out[:max_chars]
     if not uniq:
         return ""
 
@@ -327,6 +365,9 @@ def answer_from_search(
     out = f"From the web: {uniq[0]}"
     if len(uniq) > 1 and uniq[1].lower() != uniq[0].lower():
         out += " Also: " + uniq[1]
+    if with_citations:
+        # Leave room for Sources ledger
+        return attach_citations(out, text, max_chars=max(max_chars, 520))
     return out[:max_chars]
 
 
