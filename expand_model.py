@@ -47,8 +47,13 @@ def main() -> None:
     p.add_argument("--grad-accum", type=int, default=4)
     p.add_argument("--lr", type=float, default=1e-4)
     p.add_argument("--warmup", type=int, default=30)
-    p.add_argument("--distill-alpha", type=float, default=0.45, help="KL weight vs CE")
-    p.add_argument("--distill-temp", type=float, default=2.0)
+    p.add_argument(
+        "--distill-alpha",
+        type=float,
+        default=0.08,
+        help="KL weight vs CE (keep low; soft-preserve is approximate after widen)",
+    )
+    p.add_argument("--distill-temp", type=float, default=4.0)
     p.add_argument("--chat-repeat", type=int, default=30)
     p.add_argument("--adapter-rank", type=int, default=8)
     p.add_argument("--device", type=str, default="cpu")
@@ -163,13 +168,19 @@ def main() -> None:
         x, y = x.to(device), y.to(device)
 
         logits_s, ce, _ = student(x, y)
-        with torch.no_grad():
-            logits_t, _, _ = teacher(x)
-        # Shadow teacher KL (same vocab — architecture-agnostic)
-        log_p = F.log_softmax(logits_s / Ttemp, dim=-1)
-        q = F.softmax(logits_t / Ttemp, dim=-1)
-        kl = F.kl_div(log_p, q, reduction="batchmean") * (Ttemp ** 2)
-        loss = (1.0 - alpha) * ce + alpha * kl
+        if alpha > 1e-6:
+            with torch.no_grad():
+                logits_t, _, _ = teacher(x)
+            # Mild shadow KL — CE rehearsal carries most of the preserve signal
+            log_p = F.log_softmax(logits_s / Ttemp, dim=-1)
+            q = F.softmax(logits_t / Ttemp, dim=-1)
+            kl = F.kl_div(log_p, q, reduction="batchmean") * (Ttemp ** 2)
+            # Clamp KL so a bad soft-preserve cannot dominate / diverge
+            kl = torch.clamp(kl, max=20.0)
+            loss = (1.0 - alpha) * ce + alpha * kl
+        else:
+            kl = torch.zeros((), device=device)
+            loss = ce
         (loss / args.grad_accum).backward()
 
         if step % args.grad_accum == 0:
