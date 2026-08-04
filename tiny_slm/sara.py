@@ -101,43 +101,10 @@ def select_skills(goal: str, max_skills: int = 2) -> List[str]:
 
 
 def try_eval_math(text: str) -> Optional[str]:
-    """Symbolic check for simple a ±*/ b questions and light percent asks."""
-    t = (text or "").lower()
-    pct = re.search(r"what\s+is\s+(\d+)\s*(?:%|percent|pct)\s*of\s+(\d+)", t)
-    if not pct:
-        pct = re.search(r"(\d+)\s*(?:%|percent|pct)\s*of\s+(\d+)", t)
-    if pct:
-        a, b = int(pct.group(1)), int(pct.group(2))
-        return f"{a}% of {b} equals {(a * b) // 100}."
-    sq = re.search(r"(?:what\s+is\s+)?(?:the\s+)?square\s+of\s+(\d+)", t)
-    if sq:
-        n = int(sq.group(1))
-        return f"{n} squared equals {n * n}."
-    powm = re.search(r"(?:what\s+is\s+)?(\d+)\s*(?:\*\*|to the power of|raised to)\s*(\d+)", t)
-    if powm:
-        a, b = int(powm.group(1)), int(powm.group(2))
-        if 0 <= b <= 8 and a <= 1000:
-            return f"{a} to the power of {b} equals {a ** b}."
-    m = re.search(
-        r"what\s+is\s+(\d+)\s*(\+|plus|minus|-|times\b|\*|x|divided by|/)\s*(\d+)",
-        t,
-    )
-    if not m:
-        m = re.search(r"(\d+)\s*(\+|plus|minus|-|times\b|\*|x|/)\s*(\d+)", t)
-    if not m:
-        return None
-    a, op, b = int(m.group(1)), m.group(2), int(m.group(3))
-    if op in ("+", "plus"):
-        return f"{a} + {b} equals {a + b}."
-    if op in ("-", "minus"):
-        return f"{a} minus {b} equals {a - b}."
-    if op in ("*", "x", "times"):
-        return f"{a} times {b} equals {a * b}."
-    if op in ("/", "divided by"):
-        if b == 0:
-            return "Division by zero is undefined."
-        return f"{a} divided by {b} equals {a // b}."
-    return None
+    """Verified math only (SymPy + safe legacy). Never guesses."""
+    from tiny_slm.math_engine import try_solve_math
+
+    return try_solve_math(text)
 
 
 def reflect_on_draft(goal: str, draft: str, memory_snip: str = "") -> Tuple[bool, str]:

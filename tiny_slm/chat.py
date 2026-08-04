@@ -10,7 +10,8 @@ import torch
 import torch.nn.functional as F
 
 from tiny_slm.agent import looks_agentic
-from tiny_slm.compiler import CognitiveIR, compile_query, should_run_stage
+from tiny_slm.code_verify import abstain_code_message, require_verified_code
+from tiny_slm.compiler import CognitiveIR, should_run_stage
 from tiny_slm.knowledge import (
     answer_from_code_template,
     answer_from_faq,
@@ -29,6 +30,7 @@ from tiny_slm.knowledge import (
 from tiny_slm.long_task import looks_long_task, run_long_task
 from tiny_slm.memory import LongContextMemory, answer_from_memory, looks_like_recall
 from tiny_slm.model import TinySLM
+from tiny_slm.policy import ABSTAIN_GENERIC, decide_route
 from tiny_slm.sara import run_sara, select_skills, try_eval_math
 from tiny_slm.search import (
     answer_from_search,
@@ -268,32 +270,54 @@ class TinyChat:
         use_grounded: bool = True,
     ) -> Tuple[str, Optional[str]]:
         search_digest: Optional[str] = None
-        # Cognitive Compiler IR — structure the tool path before decoding
-        ir: CognitiveIR = compile_query(user, auto_search=self.auto_search or force_search)
-        ir_tag = ir.to_tag()
         memory_block = ""
         if self.memory.chunks:
             memory_block = self.memory.retrieve(user, top_k=4, max_chars=800)
+        mem_direct = (
+            answer_from_memory(user, memory_block)
+            if memory_block and looks_like_recall(user)
+            else None
+        )
+
+        # Production policy: grounded | search | agent | abstain (fail closed)
+        route = decide_route(
+            user,
+            auto_search=self.auto_search or force_search,
+            force_search=force_search,
+            force_agent=force_agent,
+            has_memory_hit=bool(mem_direct),
+        )
+        ir: CognitiveIR = route.ir
+        ir_tag = route.to_tag()
+
+        def _abstain(msg: str, source: str = "abstain") -> Tuple[str, Optional[str]]:
+            display = f"[ir] {ir_tag}\n\n[model]\n{msg}"
+            clean = _clean_for_history(msg)
+            self.history.append((user, clean))
+            self.memory.add_turn(user, clean)
+            self._trace(user, msg, ir, source)
+            return display, search_digest
+
+        if route.action == "abstain" and route.message:
+            return _abstain(route.message)
 
         if use_grounded:
             # Extractive memory reply (no training) — tiny nets rarely copy rare codes
-            if should_run_stage(ir, "memory") or looks_like_recall(user):
-                mem_direct = answer_from_memory(user, memory_block) if memory_block else None
-                if mem_direct:
-                    header = [
-                        f"[ir] {ir_tag}",
-                        f"[memory] extractive "
-                        f"({self.memory.stats()['tokens']:,}/{self.memory.max_tokens:,} tok store)",
-                    ]
-                    display = "\n".join(header) + f"\n\n[model]\n{mem_direct}"
-                    clean = _clean_for_history(mem_direct)
-                    self.history.append((user, clean))
-                    self.memory.add_turn(user, clean)
-                    self._trace(user, mem_direct, ir, "memory")
-                    return display, search_digest
+            if mem_direct:
+                header = [
+                    f"[ir] {ir_tag}",
+                    f"[memory] extractive "
+                    f"({self.memory.stats()['tokens']:,}/{self.memory.max_tokens:,} tok store)",
+                ]
+                display = "\n".join(header) + f"\n\n[model]\n{mem_direct}"
+                clean = _clean_for_history(mem_direct)
+                self.history.append((user, clean))
+                self.memory.add_turn(user, clean)
+                self._trace(user, mem_direct, ir, "memory")
+                return display, search_digest
 
-            # Symbolic math before FAQ / neural (no training)
-            if should_run_stage(ir, "math"):
+            # Verified math only (SymPy / safe legacy) — never neural arithmetic
+            if should_run_stage(ir, "math") or ir.mode == "math":
                 math_ans = try_eval_math(user)
                 if math_ans:
                     display = f"[ir] {ir_tag}\n\n[model]\n{math_ans}"
@@ -303,7 +327,7 @@ class TinyChat:
                     return display, search_digest
 
             # Grounded FAQ cards (no training) — covers brittle short definitions
-            if should_run_stage(ir, "faq"):
+            if should_run_stage(ir, "faq") or route.action == "grounded":
                 faq = answer_from_faq(user)
                 if faq:
                     display = f"[ir] {ir_tag}\n\n[model]\n{faq}"
@@ -312,7 +336,7 @@ class TinyChat:
                     self._trace(user, faq, ir, "faq")
                     return display, search_digest
 
-            if should_run_stage(ir, "plan"):
+            if should_run_stage(ir, "plan") or route.action in ("grounded", "agent"):
                 plan = answer_from_plan_template(user)
                 if plan:
                     display = f"[ir] {ir_tag}\n\n[model]\n{plan}"
@@ -321,13 +345,15 @@ class TinyChat:
                     self._trace(user, plan, ir, "plan")
                     return display, search_digest
 
-            if should_run_stage(ir, "code"):
+            if should_run_stage(ir, "code") or route.action in ("grounded", "agent"):
                 code = answer_from_code_template(user)
                 if code:
-                    display = f"[ir] {ir_tag}\n\n[model]\n{code}"
-                    self.history.append((user, code[:280]))
-                    self.memory.add_turn(user, code[:280])
-                    self._trace(user, code, ir, "code")
+                    verified = require_verified_code(user, code) or code
+                    # Templates are trusted; still prefer syntax-clean blocks
+                    display = f"[ir] {ir_tag}\n\n[model]\n{verified}"
+                    self.history.append((user, verified[:280]))
+                    self.memory.add_turn(user, verified[:280])
+                    self._trace(user, verified, ir, "code")
                     return display, search_digest
 
             # Complex research/projects: parallel search+crawl+vector RAG swarm
@@ -439,15 +465,20 @@ class TinyChat:
                 self._trace(user, final, ir, "long_task")
                 return display, search_digest
 
-        # Auto web search for open knowledge / news before weak neural decode
-        if force_search or (
+        # Auto web search for open knowledge / news — never invent facts neurally
+        want_search = force_search or route.action == "search" or (
             self.auto_search
-            and should_run_stage(ir, "search")
-            and needs_search(user)
-        ):
+            and route.action != "agent"
+            and (should_run_stage(ir, "search") or needs_search(user))
+        )
+        if want_search:
             search_digest = self._cached_search(user, max_results=4)
             web_ans = answer_from_search(search_digest, query=user)
-            if web_ans and should_prefer_web_answer(user):
+            if web_ans and (
+                should_prefer_web_answer(user)
+                or route.action == "search"
+                or force_search
+            ):
                 display = f"[ir] {ir_tag}\n[web]\n{search_digest}\n\n[model]\n{web_ans}"
                 clean = _clean_for_history(web_ans)
                 self.history.append((user, clean))
@@ -459,18 +490,14 @@ class TinyChat:
                     )
                 self._trace(user, web_ans, ir, "web")
                 return display, search_digest
-            if search_digest and search_digest.startswith("("):
-                # Search attempted but failed — avoid garbage neural fill
+            if route.action == "search" or force_search:
+                # Search was the intended path — abstain rather than hallucinate
                 msg = (
-                    "I tried the web but got no usable results. "
-                    "Try rephrasing, or ask a shorter factual question."
+                    "I tried the web but could not verify a reliable answer. "
+                    "I will not guess. Please rephrase, name a source, or ask a "
+                    "checkable math/code/plan question instead."
                 )
-                self.history.append((user, msg))
-                self.memory.add_turn(user, msg)
-                return (
-                    f"[ir] {ir_tag}\n[web]\n{search_digest}\n\n[model]\n{msg}",
-                    search_digest,
-                )
+                return _abstain(msg, "search-miss")
 
         def _raw_generate(prompt_user: str) -> str:
             # Keep retrieved memory in the neural prompt for SARA drafts
@@ -490,17 +517,12 @@ class TinyChat:
                 text = text.split("\n\n", 1)[0].strip()
             return text
 
-        # SARA for agentic / math / memory recall / explicit force / IR gate
+        # SARA / agent loop for multi-step work — grounded tools preferred inside
         sara_gate = (
             force_agent
+            or route.action == "agent"
             or should_run_stage(ir, "sara")
             or looks_agentic(user)
-            or looks_like_recall(user)
-            or try_eval_math(user) is not None
-            or any(
-                "plan_steps" in s or "compare_two" in s or "memory_answer" in s or "math_simple" in s
-                for s in select_skills(user)
-            )
         )
         if use_sara and sara_gate:
             sara = run_sara(
@@ -508,25 +530,35 @@ class TinyChat:
                 generate_fn=_raw_generate,
                 memory_retrieve=lambda q: self.memory.retrieve(q, top_k=4, max_chars=600),
                 auto_search=self.auto_search or force_search,
-                force_agent=force_agent or looks_agentic(user) or looks_like_recall(user),
+                force_agent=force_agent or looks_agentic(user) or route.action == "agent",
             )
-            reply = scrub_generation(sara.final or "(empty reply)")
-            if looks_like_echo(user, reply) or looks_low_quality(reply):
+            reply = scrub_generation(sara.final or "")
+            # Coding asks must pass syntax verification
+            code_ask = any(
+                w in (user or "").lower()
+                for w in ("python", "function", "class ", "write a", "implement", "tkinter")
+            )
+            if code_ask:
+                verified = require_verified_code(user, reply)
+                if verified:
+                    reply = verified
+                else:
+                    rescue = answer_from_code_template(user) or answer_from_plan_template(user)
+                    if rescue:
+                        reply = rescue
+                    else:
+                        return _abstain(abstain_code_message(user), "code-unverified")
+            if looks_like_echo(user, reply) or looks_low_quality(reply) or not reply:
                 faq_fallback = answer_from_faq(user)
                 plan_fallback = answer_from_plan_template(user)
                 code_fallback = answer_from_code_template(user)
                 web_fallback = None
-                if self.auto_search and not search_digest:
+                if self.auto_search and not search_digest and route.action in ("agent", "search"):
                     search_digest = self._cached_search(user, max_results=4)
                     web_fallback = answer_from_search(search_digest, query=user)
-                reply = (
-                    faq_fallback
-                    or plan_fallback
-                    or code_fallback
-                    or web_fallback
-                    or (reply if not looks_low_quality(reply) else "")
-                    or "I'm not sure I followed that — try a shorter question?"
-                )
+                reply = faq_fallback or plan_fallback or code_fallback or web_fallback or ""
+                if not reply:
+                    return _abstain(ABSTAIN_GENERIC, "agent-miss")
             header = [
                 f"[ir] {ir_tag}",
                 f"[sara] skills={len(sara.skills)} revised={sara.revised} reflect={sara.reflection}",
@@ -548,37 +580,20 @@ class TinyChat:
             self._trace(user, reply, ir, "sara")
             return display, search_digest
 
-        # Simple chat path (search already attempted above when needed)
+        # Neural decode ONLY when policy explicitly allows (e.g. short chitchat)
+        if not route.allow_neural:
+            return _abstain(route.message or ABSTAIN_GENERIC, "policy-block")
+
         tool_block = ""
         if search_digest:
             tool_block = f"[tool:search] {search_digest[:600]}"
         prompt = self._build_prompt(user, tool_block=tool_block, memory_block=memory_block)
         ids = self.tokenizer.encode(prompt)
-        ulow = (user or "").lower()
-        codeish = any(
-            w in ulow
-            for w in (
-                "python",
-                "function",
-                "list",
-                "sort",
-                "append",
-                "dict",
-                "comprehension",
-                "reverse",
-                "string",
-                "file",
-                "loop",
-                "variable",
-            )
-        )
-        gen_temp = min(temperature, 0.18) if codeish else temperature
-        gen_topk = min(top_k or 28, 14) if codeish else top_k
         new_ids = self._generate(
             ids,
             max_new_tokens=max_new_tokens,
-            temperature=gen_temp,
-            top_k=gen_topk,
+            temperature=min(temperature, 0.35),
+            top_k=top_k,
             repetition_penalty=repetition_penalty,
         )
         reply = scrub_generation(
@@ -587,73 +602,14 @@ class TinyChat:
         if "\n\n" in reply:
             reply = reply.split("\n\n", 1)[0].strip()
         reply = repair_truncated_greeting(user, reply)
-        reply = repair_short_definition(user, reply)
-        reply = repair_coding_answer(user, reply)
-        reply = repair_plan_answer(user, reply)
-        # Prefer first complete sentence for short chit-chat
-        if reply and len(reply) > 160:
-            m = re.match(r"^(.+?[.!?])(\s|$)", reply, re.S)
-            if m and len(m.group(1)) >= 20:
-                reply = m.group(1).strip()
+        if looks_like_echo(user, reply) or looks_low_quality(reply) or not reply:
+            faq_fallback = answer_from_faq(user)
+            if faq_fallback:
+                reply = faq_fallback
+            else:
+                return _abstain(ABSTAIN_GENERIC, "neural-miss")
 
-        def _bad(r: str) -> bool:
-            return (
-                not r
-                or looks_like_echo(user, r)
-                or looks_low_quality(r)
-                or looks_off_topic_math(user, r)
-                or looks_wrong_sort_answer(user, r)
-                or looks_wrong_coding_answer(user, r)
-            )
-
-        if _bad(reply) and not use_grounded:
-            # One cooler neural retry before giving up (no template rescue).
-            retry_ids = self._generate(
-                ids,
-                max_new_tokens=max_new_tokens,
-                temperature=min(gen_temp, 0.12),
-                top_k=min(gen_topk or 20, 10),
-                repetition_penalty=repetition_penalty,
-            )
-            reply = scrub_generation(
-                self.tokenizer.decode(retry_ids, skip_special=True).strip()
-            )
-            if "\n\n" in reply:
-                reply = reply.split("\n\n", 1)[0].strip()
-            reply = repair_truncated_greeting(user, reply)
-            reply = repair_short_definition(user, reply)
-            reply = repair_coding_answer(user, reply)
-            reply = repair_plan_answer(user, reply)
-
-        if _bad(reply):
-            faq_fallback = answer_from_faq(user) if use_grounded else None
-            plan_fallback = answer_from_plan_template(user) if use_grounded else None
-            code_fallback = answer_from_code_template(user) if use_grounded else None
-            if not search_digest and self.auto_search:
-                search_digest = self._cached_search(user, max_results=4)
-            web_fallback = (
-                answer_from_search(search_digest, query=user) if search_digest else None
-            )
-            reply = (
-                faq_fallback
-                or plan_fallback
-                or code_fallback
-                or web_fallback
-                or (reply if reply and not looks_low_quality(reply) else None)
-                or "I'm not sure I followed that — try a shorter question?"
-            )
-
-        display = reply
-        header_parts = [f"[ir] {ir_tag}"]
-        if memory_block:
-            header_parts.append(
-                f"[memory] used {len(memory_block)} chars "
-                f"({self.memory.stats()['tokens']:,}/{self.memory.max_tokens:,} tok store)"
-            )
-        if search_digest:
-            header_parts.append(f"[web]\n{search_digest}")
-        display = "\n".join(header_parts) + f"\n\n[model]\n{reply}"
-
+        display = f"[ir] {ir_tag}\n\n[model]\n{reply}"
         clean = _clean_for_history(reply)
         self.history.append((user, clean))
         self.memory.add_turn(user, clean)

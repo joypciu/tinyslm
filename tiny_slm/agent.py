@@ -55,9 +55,18 @@ def looks_agentic(user: str) -> bool:
     return any(re.search(w, u) for w in words)
 
 
-def build_plan(goal: str) -> List[str]:
+def build_plan(goal: str, need: List[str] | None = None) -> List[str]:
+    """Build tool plan; prefer CognitiveIR need list when provided."""
     g = goal.lower()
-    steps = []
+    steps: List[str] = []
+    if need:
+        for n in need:
+            if n in ("swarm", "search", "memory", "compare", "reason", "code", "plan"):
+                # Map IR needs onto agent tools
+                if n in ("code", "plan"):
+                    steps.append("reason")
+                else:
+                    steps.append(n)
     if looks_complex_query(goal):
         steps.append("swarm")
     elif needs_search(goal) or any(

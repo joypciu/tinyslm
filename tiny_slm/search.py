@@ -176,11 +176,23 @@ def needs_search(user_message: str) -> bool:
         "saudi leagues",
         "league teams",
         "research",
+        "who won",
+        "election",
+        "current president",
+        "stock price",
+        "today's",
+        "this week",
     ]
     if any(t in msg for t in triggers):
         return True
-    if re.search(r"\bwho is\b", msg) and not re.search(
-        r"\bwho is (you|this|that|it|tinyslm)\b", msg
+    # Year mentions usually mean live/world knowledge
+    if re.search(r"\b20(2[0-9]|3[0-9])\b", msg) and re.search(
+        r"\b(who|what|when|where|which|winner|won|election|champion|release)\b",
+        msg,
+    ):
+        return True
+    if re.search(r"\bwho (is|was|won)\b", msg) and not re.search(
+        r"\bwho (is|was) (you|this|that|it|tinyslm)\b", msg
     ):
         return True
     # Open knowledge asks the tiny model usually fails on

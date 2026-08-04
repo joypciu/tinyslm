@@ -20,7 +20,7 @@ from typing import List, Optional, Sequence
 from tiny_slm.agent import looks_agentic
 from tiny_slm.long_task import looks_long_task
 from tiny_slm.memory import looks_like_recall
-from tiny_slm.sara import try_eval_math
+from tiny_slm.math_engine import looks_like_math, try_solve_math
 from tiny_slm.search import needs_search
 from tiny_slm.swarm import looks_complex_query, should_spawn_swarm
 
@@ -86,13 +86,23 @@ def compile_query(user: str, *, auto_search: bool = True) -> CognitiveIR:
         return CognitiveIR(mode="chat", confidence=0.2, rationale="empty")
 
     # Highest-confidence grounded modes first (safe for tiny nets)
-    if try_eval_math(q) is not None:
+    math_ans = try_solve_math(q)
+    if math_ans is not None:
         return CognitiveIR(
             mode="math",
             need=["math"],
             verify=["symbolic"],
-            confidence=0.95,
+            confidence=0.98,
             rationale="symbolic-math",
+        )
+    if looks_like_math(q):
+        # Math intent without a verifiable solve → abstain (no neural guess)
+        return CognitiveIR(
+            mode="abstain",
+            need=[],
+            verify=["symbolic"],
+            confidence=0.9,
+            rationale="math-unverified",
         )
 
     if looks_like_recall(q):
@@ -199,11 +209,12 @@ def compile_query(user: str, *, auto_search: bool = True) -> CognitiveIR:
             rationale="agentic",
         )
 
+    # Open chat is low-confidence: production policy should prefer abstain/search
     return CognitiveIR(
         mode="chat",
-        need=["neural"],
-        verify=[],
-        confidence=0.4,
+        need=[],
+        verify=["abstain_if_unsure"],
+        confidence=0.35,
         rationale="open-chat",
     )
 
@@ -234,8 +245,9 @@ def pipeline_stages(ir: CognitiveIR) -> List[str]:
         "compare": ["faq", "plan", "sara", "search", "neural"],
         "faq": ["faq", "search", "neural"],
         "search": ["search", "faq", "neural"],
-        "sara": ["memory", "sara", "neural"],
-        "chat": ["faq", "neural"],
+        "sara": ["memory", "sara"],
+        "chat": ["faq"],
+        "abstain": [],
     }
     base = list(mode_pipes.get(ir.mode, ["faq", "neural"]))
     # Honor explicit needs while preserving order
