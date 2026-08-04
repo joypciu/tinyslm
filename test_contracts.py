@@ -59,6 +59,14 @@ def test_memory_contract() -> None:
     assert "ORBIT" in cr.artifact.upper() or "orbit" in cr.artifact.lower()
 
 
+def test_repair_memory_query() -> None:
+    from tiny_slm.memory import repair_memory_query
+
+    q = repair_memory_query("Using memory, what is the launch code?")
+    assert "using memory" not in q.lower()
+    assert "launch" in q.lower() and "code" in q.lower()
+
+
 def test_best_answer_prefers_search() -> None:
     from tiny_slm.contracts import ContractResult
 
@@ -87,6 +95,7 @@ def main() -> None:
         test_repair_search_query,
         test_host_diversity,
         test_memory_contract,
+        test_repair_memory_query,
         test_best_answer_prefers_search,
         test_agent_tools_contract_lines,
     ]

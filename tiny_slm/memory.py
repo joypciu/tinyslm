@@ -123,6 +123,25 @@ def looks_like_recall(query: str) -> bool:
     return bool(_RECALL_CUES.search(query or ""))
 
 
+def repair_memory_query(goal: str) -> str:
+    """One-shot Memory Contract Repair: strip recall fluff to noun/code cues."""
+    q = (goal or "").strip()
+    q = re.sub(
+        r"^(using memory[,:]?\s*|from (?:memory|context|the document)[,:]?\s*)",
+        "",
+        q,
+        flags=re.I,
+    )
+    q = re.sub(
+        r"\b(please|tell me|what is|what's|whats|recall|remember|exact|value)\b",
+        " ",
+        q,
+        flags=re.I,
+    )
+    q = re.sub(r"\s+", " ", q).strip(" ?!.")
+    return q or (goal or "").strip()
+
+
 def extract_codes(text: str) -> List[str]:
     return list(dict.fromkeys(_CODEISH.findall(text or "")))
 

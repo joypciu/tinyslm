@@ -13,6 +13,7 @@ from tiny_slm.contracts import (
     contract_search,
     contract_swarm,
 )
+from tiny_slm.memory import repair_memory_query
 from tiny_slm.search import clean_search_query, needs_search, repair_search_query, search_web
 from tiny_slm.swarm import looks_complex_query, run_swarm
 
@@ -152,6 +153,19 @@ def run_agent_tools(
         elif step == "memory":
             mem = memory_retrieve(goal) if callable(memory_retrieve) else ""
             cr = contract_memory(goal, mem or "")
+            # Memory Contract Repair: rewrite query once if no extractive hit
+            if (not cr.ok) or cr.proof == "context-only":
+                q2 = repair_memory_query(goal)
+                if q2.lower() != (goal or "").strip().lower():
+                    mem2 = memory_retrieve(q2) if callable(memory_retrieve) else ""
+                    blob = "\n".join(x for x in (mem2, mem) if x).strip()
+                    cr2 = contract_memory(q2, blob)
+                    if cr2.ok and cr2.proof == "extractive-hit":
+                        cr2.proof = f"repaired:{q2[:50]}|{cr2.proof}"
+                        cr = cr2
+                    elif not cr.ok and cr2.ok:
+                        cr2.proof = f"repaired:{q2[:50]}|{cr2.proof}"
+                        cr = cr2
             state.contracts.append(cr)
             blocks.append(cr.line())
             if cr.ok:
