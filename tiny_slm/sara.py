@@ -212,6 +212,13 @@ def run_sara(
             goal, memory_retrieve=memory_retrieve, auto_search=auto_search
         )
         state.agent = agent_state
+        # Prefer contracted verified artifact (search/swarm/memory) — no free invent
+        verified = getattr(agent_state, "verified_answer", None)
+        if verified:
+            state.draft = verified
+            state.final = verified
+            state.reflection = "agent-step-contract"
+            return state
         # Re-check after tool memory pull
         if state.agent and state.agent.scratchpad:
             tool_mem = "\n".join(state.agent.scratchpad)
@@ -221,19 +228,9 @@ def run_sara(
                 state.final = mem_ans
                 state.reflection = "extractive memory after tools"
                 return state
-            # Extractive web answer when search tool ran
             for note in state.agent.scratchpad:
                 if note.startswith("[tool:extract]"):
                     web_ans = note.replace("[tool:extract]", "", 1).strip()
-                    if web_ans:
-                        state.draft = web_ans
-                        state.final = web_ans
-                        state.reflection = "extractive web after tools"
-                        return state
-                if note.startswith("[tool:search]"):
-                    web_ans = answer_from_search(
-                        note.replace("[tool:search]", "", 1), query=goal
-                    )
                     if web_ans:
                         state.draft = web_ans
                         state.final = web_ans

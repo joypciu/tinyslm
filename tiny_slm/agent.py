@@ -1,4 +1,4 @@
-"""Lightweight agentic controller for TinySLM (plan → tools → answer)."""
+"""Lightweight agentic controller for TinySLM (plan → contracted tools → answer)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,14 @@ import re
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
-from tiny_slm.search import answer_from_search, clean_search_query, needs_search, search_web
+from tiny_slm.contracts import (
+    ContractResult,
+    best_contract_answer,
+    contract_memory,
+    contract_search,
+    contract_swarm,
+)
+from tiny_slm.search import clean_search_query, needs_search, search_web
 from tiny_slm.swarm import looks_complex_query, run_swarm
 
 
@@ -16,11 +23,12 @@ class AgentState:
     plan: List[str] = field(default_factory=list)
     scratchpad: List[str] = field(default_factory=list)
     steps_done: int = 0
+    contracts: List[ContractResult] = field(default_factory=list)
+    verified_answer: Optional[str] = None
 
 
 def looks_agentic(user: str) -> bool:
     u = user.lower()
-    # Phrase triggers (substring OK)
     phrases = [
         "step by step",
         "find out",
@@ -38,7 +46,6 @@ def looks_agentic(user: str) -> bool:
     ]
     if any(p in u for p in phrases):
         return True
-    # Word-boundary triggers — avoid "plan" matching "plants"
     words = [
         r"\bplan\b",
         r"\bplans\b",
@@ -62,7 +69,6 @@ def build_plan(goal: str, need: List[str] | None = None) -> List[str]:
     if need:
         for n in need:
             if n in ("swarm", "search", "memory", "compare", "reason", "code", "plan"):
-                # Map IR needs onto agent tools
                 if n in ("code", "plan"):
                     steps.append("reason")
                 else:
@@ -77,7 +83,6 @@ def build_plan(goal: str, need: List[str] | None = None) -> List[str]:
         steps.append("memory")
     if any(w in g for w in ("compare", "versus", "vs")):
         steps.append("compare")
-    # Coding / long builds: memory scratch + reason (templates verify elsewhere)
     if any(w in g for w in ("python", "function", "implement", "tkinter", "script", "code")):
         steps.append("memory")
         steps.append("reason")
@@ -85,7 +90,6 @@ def build_plan(goal: str, need: List[str] | None = None) -> List[str]:
         steps = ["memory", "reason"]
     else:
         steps.append("reason")
-    # de-dupe preserve order
     out = []
     for s in steps:
         if s not in out:
@@ -98,7 +102,7 @@ def run_agent_tools(
     memory_retrieve,
     auto_search: bool = True,
 ) -> Tuple[str, AgentState]:
-    """Execute a tiny tool loop; returns context block for the LM."""
+    """Execute contracted tool loop; only verified artifacts feed the answer."""
     state = AgentState(goal=goal, plan=build_plan(goal))
     blocks: List[str] = []
     blocks.append("Plan: " + " - ".join(state.plan))
@@ -107,43 +111,58 @@ def run_agent_tools(
         if step == "swarm" and auto_search:
             try:
                 swarm = run_swarm(goal, max_workers=4, max_subgoals=5, max_pages_per_agent=2)
-                note = f"[tool:swarm] {swarm.digest[:400]}"
-                state.scratchpad.append(note)
-                blocks.append(note)
-                if swarm.answer:
-                    state.scratchpad.append(f"[tool:swarm_answer] {swarm.answer[:700]}")
-                    blocks.append(f"[tool:swarm_answer] {swarm.answer[:700]}")
+                cr = contract_swarm(swarm.answer or "", swarm.digest or "")
+                state.contracts.append(cr)
+                blocks.append(cr.line())
+                if cr.ok:
+                    state.scratchpad.append(f"[tool:swarm_answer] {cr.artifact[:700]}")
+                    blocks.append(f"[tool:swarm_answer] {cr.artifact[:700]}")
+                else:
+                    state.scratchpad.append(f"[tool:swarm] {cr.proof}")
             except Exception as exc:
-                blocks.append(f"[tool:swarm] failed: {type(exc).__name__}")
+                cr = ContractResult("swarm", False, "", f"failed:{type(exc).__name__}")
+                state.contracts.append(cr)
+                blocks.append(cr.line())
             state.steps_done += 1
         elif step == "search" and auto_search:
             q = clean_search_query(goal)
-            digest = search_web(q, max_results=4)
-            note = f"[tool:search] {digest[:700]}"
-            state.scratchpad.append(note)
-            blocks.append(note)
-            extracted = answer_from_search(digest, query=goal)
-            if extracted:
-                state.scratchpad.append(f"[tool:extract] {extracted}")
-                blocks.append(f"[tool:extract] {extracted}")
+            digest = search_web(q, max_results=5)
+            cr = contract_search(goal, digest)
+            state.contracts.append(cr)
+            blocks.append(cr.line())
+            if cr.ok:
+                state.scratchpad.append(f"[tool:extract] {cr.artifact}")
+                blocks.append(f"[tool:extract] {cr.artifact}")
+            else:
+                state.scratchpad.append(f"[tool:search] {cr.proof}")
             state.steps_done += 1
         elif step == "memory":
             mem = memory_retrieve(goal) if callable(memory_retrieve) else ""
-            if mem:
-                note = f"[tool:memory] {mem[:700]}"
-                state.scratchpad.append(note)
-                blocks.append(note)
+            cr = contract_memory(goal, mem or "")
+            state.contracts.append(cr)
+            blocks.append(cr.line())
+            if cr.ok:
+                state.scratchpad.append(f"[tool:memory] {cr.artifact[:700]}")
+                blocks.append(f"[tool:memory] {cr.artifact[:700]}")
             state.steps_done += 1
         elif step == "compare":
             parts = re.split(r"\bvs\.?\b|\bversus\b|\bcompare\b", goal, flags=re.I)
             hint = " | ".join(p.strip() for p in parts if p.strip())[:200]
-            note = f"[tool:compare] Focus sides: {hint or goal[:200]}"
-            state.scratchpad.append(note)
-            blocks.append(note)
+            cr = ContractResult("compare", True, hint or goal[:200], "sides-parsed")
+            state.contracts.append(cr)
+            blocks.append(cr.line())
+            state.scratchpad.append(f"[tool:compare] Focus sides: {cr.artifact}")
             state.steps_done += 1
         elif step == "reason":
-            state.scratchpad.append("[tool:reason] synthesize findings into a clear answer")
+            state.scratchpad.append("[tool:reason] synthesize only from PASS contracts")
             state.steps_done += 1
+
+    state.verified_answer = best_contract_answer(state.contracts)
+    if state.verified_answer:
+        blocks.append(f"[contract:final:PASS] verified tool answer ready")
+    else:
+        n_fail = sum(1 for c in state.contracts if not c.ok)
+        blocks.append(f"[contract:final:FAIL] no verified artifact ({n_fail} failed steps)")
 
     ctx = "\n".join(blocks)[:1800]
     return ctx, state
