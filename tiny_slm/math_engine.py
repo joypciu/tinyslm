@@ -345,6 +345,7 @@ def _sympy_locals():
         "exp": sp.exp,
         "log": sp.log,
         "ln": sp.log,
+        "log10": lambda x: sp.log(x, 10),
         "sqrt": sp.sqrt,
         "Abs": sp.Abs,
         "factorial": sp.factorial,
@@ -557,6 +558,20 @@ def _extract_expr_blob(text: str) -> Optional[str]:
     m = re.search(r"(?:least common multiple|lcm)\s+of\s+(\d+)\s+and\s+(\d+)", low)
     if m:
         return f"__lcm__{m.group(1)},{m.group(2)}"
+
+    # log / ln / log10
+    m = re.search(r"(?:natural log|ln)\s*(?:of\s*)?\(?\s*([^\s)]+)\s*\)?", low)
+    if m and "log10" not in low:
+        return f"log({m.group(1).strip()})"
+    m = re.search(r"log\s*base\s*(\d+)\s*(?:of\s*)?\(?\s*([^\s)]+)\s*\)?", low)
+    if m:
+        return f"log({m.group(2).strip()})/log({m.group(1)})"
+    m = re.search(r"log10\s*(?:of\s*)?\(?\s*([^\s)]+)\s*\)?", low)
+    if m:
+        return f"log({m.group(1).strip()}, 10)"
+    m = re.search(r"\blog\s*(?:of\s*)?\(?\s*([^\s)]+)\s*\)?", low)
+    if m and "login" not in low:
+        return f"log({m.group(1).strip()}, 10)"
 
     # factorial n!
     m = re.search(r"factorial\s*(?:of\s*)?(\d+)|(\d+)\s*!", low)
