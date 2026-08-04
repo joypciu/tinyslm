@@ -460,6 +460,34 @@ def _extract_expr_blob(text: str) -> Optional[str]:
     if m:
         return f"__lcm__{m.group(1)},{m.group(2)}"
 
+    # binomial coefficient C(n,k) / n choose k
+    m = re.search(
+        r"(?:binomial\s*(?:coefficient)?|choose)\s*(?:of\s*)?\(?\s*(\d+)\s*[, ]\s*(\d+)\s*\)?"
+        r"|(\d+)\s+choose\s+(\d+)"
+        r"|c\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)",
+        low,
+    )
+    if m:
+        pairs = [(m.group(1), m.group(2)), (m.group(3), m.group(4)), (m.group(5), m.group(6))]
+        for a, b in pairs:
+            if a is not None and b is not None:
+                return f"__binom__{a},{b}"
+
+    # binomial probability: P(X=k) for Binomial(n,p)
+    m = re.search(
+        r"binomial\s*(?:probability|pmf)?\s*.*?\bn\s*=\s*(\d+).*?\bp\s*=\s*([0-9]*\.?[0-9]+).*?\bk\s*=\s*(\d+)",
+        low,
+    )
+    if not m:
+        m = re.search(
+            r"p\s*\(\s*x\s*=\s*(\d+)\s*\)\s*.*?binomial\s*\(\s*(\d+)\s*,\s*([0-9]*\.?[0-9]+)\s*\)",
+            low,
+        )
+        if m:
+            return f"__binom_pmf__{m.group(2)},{m.group(3)},{m.group(1)}"
+    else:
+        return f"__binom_pmf__{m.group(1)},{m.group(2)},{m.group(3)}"
+
     # summation: sum k=1 to n of k**2
     m = re.search(
         r"sum(?:mation)?\s+([a-z])\s*=\s*(\d+)\s+to\s+(\d+)\s+of\s+(.+)$",
@@ -638,6 +666,30 @@ def try_solve_math_once(text: str) -> Optional[str]:
 
             aa, bb = int(a), int(b)
             return f"Verified result: lcm({aa}, {bb}) = {math.lcm(aa, bb)}."
+        except Exception:
+            return None
+    if blob.startswith("__binom__"):
+        try:
+            n_s, k_s = blob[len("__binom__") :].split(",")
+            n, k = int(n_s), int(k_s)
+            if 0 <= k <= n <= 1000:
+                from math import comb
+
+                return f"Verified result: C({n}, {k}) = {comb(n, k)}."
+        except Exception:
+            return None
+    if blob.startswith("__binom_pmf__"):
+        try:
+            n_s, p_s, k_s = blob[len("__binom_pmf__") :].split(",")
+            n, p, k = int(n_s), float(p_s), int(k_s)
+            if 0 <= k <= n <= 200 and 0 <= p <= 1:
+                from math import comb
+
+                prob = comb(n, k) * (p**k) * ((1 - p) ** (n - k))
+                return (
+                    f"Verified binomial: P(X={k} | n={n}, p={p}) = "
+                    f"C({n},{k})*{p}^{k}*(1-{p})^{n - k} = {prob:.6g}."
+                )
         except Exception:
             return None
     # hessian of scalar f

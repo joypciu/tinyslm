@@ -33,6 +33,9 @@ def test_basic_and_symbolic_math() -> None:
     assert ans8 and "6*x" in ans8.replace(" ", ""), ans8
     assert "= 6" in (try_solve_math("gcd of 48 and 18") or "")
     assert "= 36" in (try_solve_math("lcm(12, 18)") or "")
+    assert "= 45" in (try_solve_math("10 choose 2") or "")
+    ans9 = try_solve_math("binomial probability n=5 p=0.5 k=2")
+    assert ans9 and "0.3125" in ans9, ans9
     action_pde, _ = math_policy("Solve the Navier-Stokes PDE for my thesis.")
     assert action_pde == "abstain"
 
