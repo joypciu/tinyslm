@@ -14,6 +14,9 @@ checkpoints/tinyslm_pre_*.pt
 checkpoints/backup_*/
 checkpoints/memory_store.json
 checkpoints/_smoke_memory.json
+checkpoints/success_traces.jsonl
+checkpoints/_test_*.jsonl
+data/_test_*.txt
 data/*.txt
 !data/.gitkeep
 benchmarks/*.log

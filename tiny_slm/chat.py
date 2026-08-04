@@ -39,6 +39,7 @@ from tiny_slm.search import (
 )
 from tiny_slm.swarm import run_swarm, should_spawn_swarm
 from tiny_slm.tokenizer import TinyTokenizer
+from tiny_slm.traces import TraceStore
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CKPT = ROOT / "checkpoints" / "tinyslm.pt"
@@ -62,6 +63,7 @@ class TinyChat:
         device: str = "cpu",
         auto_search: bool = True,
         memory_tokens: int = 2_000_000,
+        log_traces: bool = True,
     ):
         if not ckpt_path.exists():
             raise FileNotFoundError(
@@ -79,7 +81,27 @@ class TinyChat:
         self.history: List[Tuple[str, str]] = []
         self.memory = LongContextMemory(max_tokens=memory_tokens)
         self._search_cache: dict[str, str] = {}
+        self.traces = TraceStore(enabled=log_traces)
         self._seed_skill_cards()
+
+    def _trace(
+        self,
+        user: str,
+        answer: str,
+        ir: CognitiveIR,
+        source: str,
+    ) -> None:
+        try:
+            self.traces.record(
+                user,
+                answer,
+                mode=ir.mode,
+                source=source,
+                ir_tag=ir.to_tag(),
+                verify=list(ir.verify),
+            )
+        except Exception:
+            pass
 
     def _seed_skill_cards(self) -> None:
         """Seed procedural skill cards (tiny; helps agentic retrieve)."""
@@ -267,6 +289,7 @@ class TinyChat:
                     clean = _clean_for_history(mem_direct)
                     self.history.append((user, clean))
                     self.memory.add_turn(user, clean)
+                    self._trace(user, mem_direct, ir, "memory")
                     return display, search_digest
 
             # Symbolic math before FAQ / neural (no training)
@@ -276,6 +299,7 @@ class TinyChat:
                     display = f"[ir] {ir_tag}\n\n[model]\n{math_ans}"
                     self.history.append((user, math_ans[:280]))
                     self.memory.add_turn(user, math_ans[:280])
+                    self._trace(user, math_ans, ir, "math")
                     return display, search_digest
 
             # Grounded FAQ cards (no training) — covers brittle short definitions
@@ -285,6 +309,7 @@ class TinyChat:
                     display = f"[ir] {ir_tag}\n\n[model]\n{faq}"
                     self.history.append((user, faq[:280]))
                     self.memory.add_turn(user, faq[:280])
+                    self._trace(user, faq, ir, "faq")
                     return display, search_digest
 
             if should_run_stage(ir, "plan"):
@@ -293,6 +318,7 @@ class TinyChat:
                     display = f"[ir] {ir_tag}\n\n[model]\n{plan}"
                     self.history.append((user, plan[:280]))
                     self.memory.add_turn(user, plan[:280])
+                    self._trace(user, plan, ir, "plan")
                     return display, search_digest
 
             if should_run_stage(ir, "code"):
@@ -301,6 +327,7 @@ class TinyChat:
                     display = f"[ir] {ir_tag}\n\n[model]\n{code}"
                     self.history.append((user, code[:280]))
                     self.memory.add_turn(user, code[:280])
+                    self._trace(user, code, ir, "code")
                     return display, search_digest
 
             # Complex research/projects: parallel search+crawl+vector RAG swarm
@@ -331,6 +358,7 @@ class TinyChat:
                         f"SWARM about {clean_search_query(user)[:120]}: {swarm.answer[:600]}",
                         source="swarm",
                     )
+                    self._trace(user, swarm.answer, ir, "swarm")
                     return display, search_digest
                 elif swarm_err:
                     # Fall through to existing search/neural paths
@@ -408,6 +436,7 @@ class TinyChat:
                 clean = _clean_for_history(final)
                 self.history.append((user, clean))
                 self.memory.add_turn(user, clean)
+                self._trace(user, final, ir, "long_task")
                 return display, search_digest
 
         # Auto web search for open knowledge / news before weak neural decode
@@ -428,6 +457,7 @@ class TinyChat:
                         f"WEB about {clean_search_query(user)}: {web_ans}",
                         source="web",
                     )
+                self._trace(user, web_ans, ir, "web")
                 return display, search_digest
             if search_digest and search_digest.startswith("("):
                 # Search attempted but failed — avoid garbage neural fill
@@ -515,6 +545,7 @@ class TinyChat:
             clean = _clean_for_history(reply)
             self.history.append((user, clean))
             self.memory.add_turn(user, clean)
+            self._trace(user, reply, ir, "sara")
             return display, search_digest
 
         # Simple chat path (search already attempted above when needed)
@@ -626,4 +657,5 @@ class TinyChat:
         clean = _clean_for_history(reply)
         self.history.append((user, clean))
         self.memory.add_turn(user, clean)
+        self._trace(user, reply, ir, "neural")
         return display, search_digest
