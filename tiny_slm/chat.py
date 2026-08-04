@@ -10,6 +10,7 @@ import torch
 import torch.nn.functional as F
 
 from tiny_slm.agent import looks_agentic
+from tiny_slm.compiler import CognitiveIR, compile_query, should_run_stage
 from tiny_slm.knowledge import (
     answer_from_code_template,
     answer_from_faq,
@@ -245,52 +246,69 @@ class TinyChat:
         use_grounded: bool = True,
     ) -> Tuple[str, Optional[str]]:
         search_digest: Optional[str] = None
+        # Cognitive Compiler IR — structure the tool path before decoding
+        ir: CognitiveIR = compile_query(user, auto_search=self.auto_search or force_search)
+        ir_tag = ir.to_tag()
         memory_block = ""
         if self.memory.chunks:
             memory_block = self.memory.retrieve(user, top_k=4, max_chars=800)
 
         if use_grounded:
             # Extractive memory reply (no training) — tiny nets rarely copy rare codes
-            mem_direct = answer_from_memory(user, memory_block) if memory_block else None
-            if mem_direct:
-                header = [
-                    f"[memory] extractive "
-                    f"({self.memory.stats()['tokens']:,}/{self.memory.max_tokens:,} tok store)"
-                ]
-                display = "\n".join(header) + f"\n\n[model]\n{mem_direct}"
-                clean = _clean_for_history(mem_direct)
-                self.history.append((user, clean))
-                self.memory.add_turn(user, clean)
-                return display, search_digest
+            if should_run_stage(ir, "memory") or looks_like_recall(user):
+                mem_direct = answer_from_memory(user, memory_block) if memory_block else None
+                if mem_direct:
+                    header = [
+                        f"[ir] {ir_tag}",
+                        f"[memory] extractive "
+                        f"({self.memory.stats()['tokens']:,}/{self.memory.max_tokens:,} tok store)",
+                    ]
+                    display = "\n".join(header) + f"\n\n[model]\n{mem_direct}"
+                    clean = _clean_for_history(mem_direct)
+                    self.history.append((user, clean))
+                    self.memory.add_turn(user, clean)
+                    return display, search_digest
 
             # Symbolic math before FAQ / neural (no training)
-            math_ans = try_eval_math(user)
-            if math_ans:
-                self.history.append((user, math_ans[:280]))
-                self.memory.add_turn(user, math_ans[:280])
-                return math_ans, search_digest
+            if should_run_stage(ir, "math"):
+                math_ans = try_eval_math(user)
+                if math_ans:
+                    display = f"[ir] {ir_tag}\n\n[model]\n{math_ans}"
+                    self.history.append((user, math_ans[:280]))
+                    self.memory.add_turn(user, math_ans[:280])
+                    return display, search_digest
 
             # Grounded FAQ cards (no training) — covers brittle short definitions
-            faq = answer_from_faq(user)
-            if faq:
-                self.history.append((user, faq[:280]))
-                self.memory.add_turn(user, faq[:280])
-                return faq, search_digest
+            if should_run_stage(ir, "faq"):
+                faq = answer_from_faq(user)
+                if faq:
+                    display = f"[ir] {ir_tag}\n\n[model]\n{faq}"
+                    self.history.append((user, faq[:280]))
+                    self.memory.add_turn(user, faq[:280])
+                    return display, search_digest
 
-            plan = answer_from_plan_template(user)
-            if plan:
-                self.history.append((user, plan[:280]))
-                self.memory.add_turn(user, plan[:280])
-                return plan, search_digest
+            if should_run_stage(ir, "plan"):
+                plan = answer_from_plan_template(user)
+                if plan:
+                    display = f"[ir] {ir_tag}\n\n[model]\n{plan}"
+                    self.history.append((user, plan[:280]))
+                    self.memory.add_turn(user, plan[:280])
+                    return display, search_digest
 
-            code = answer_from_code_template(user)
-            if code:
-                self.history.append((user, code[:280]))
-                self.memory.add_turn(user, code[:280])
-                return code, search_digest
+            if should_run_stage(ir, "code"):
+                code = answer_from_code_template(user)
+                if code:
+                    display = f"[ir] {ir_tag}\n\n[model]\n{code}"
+                    self.history.append((user, code[:280]))
+                    self.memory.add_turn(user, code[:280])
+                    return display, search_digest
 
             # Complex research/projects: parallel search+crawl+vector RAG swarm
-            if self.auto_search and should_spawn_swarm(user, has_card=False):
+            if (
+                self.auto_search
+                and should_run_stage(ir, "swarm")
+                and should_spawn_swarm(user, has_card=False)
+            ):
                 try:
                     swarm = run_swarm(user, max_workers=4, max_subgoals=5, max_pages_per_agent=2)
                 except Exception as exc:
@@ -301,8 +319,9 @@ class TinyChat:
                 if swarm and swarm.answer and len(swarm.answer) > 60:
                     search_digest = swarm.digest
                     header = [
+                        f"[ir] {ir_tag}",
                         f"[swarm] subgoals={len(swarm.subgoals)} workers={swarm.workers} "
-                        f"pages={swarm.pages_crawled} chunks={swarm.chunks} backend={swarm.backend}"
+                        f"pages={swarm.pages_crawled} chunks={swarm.chunks} backend={swarm.backend}",
                     ]
                     display = "\n".join(header) + f"\n\n[model]\n{swarm.answer}"
                     clean = _clean_for_history(swarm.answer[:500])
@@ -318,7 +337,7 @@ class TinyChat:
                     pass
 
             # Long multi-step jobs: one sub-goal at a time + memory scratchpad
-            if looks_long_task(user):
+            if should_run_stage(ir, "long_task") and looks_long_task(user):
 
                 def _solve(goal: str, step: str) -> str:
                     # Prefer grounded cards for the whole goal; else short neural draft
@@ -378,7 +397,8 @@ class TinyChat:
                             "text field, and a button that shows a message."
                         )
                 header = [
-                    f"[long-task] steps={len(lt.steps)} block={self.model.config.block_size}"
+                    f"[ir] {ir_tag}",
+                    f"[long-task] steps={len(lt.steps)} block={self.model.config.block_size}",
                 ]
                 if memory_block:
                     header.append(
@@ -391,11 +411,15 @@ class TinyChat:
                 return display, search_digest
 
         # Auto web search for open knowledge / news before weak neural decode
-        if force_search or (self.auto_search and needs_search(user)):
+        if force_search or (
+            self.auto_search
+            and should_run_stage(ir, "search")
+            and needs_search(user)
+        ):
             search_digest = self._cached_search(user, max_results=4)
             web_ans = answer_from_search(search_digest, query=user)
             if web_ans and should_prefer_web_answer(user):
-                display = f"[web]\n{search_digest}\n\n[model]\n{web_ans}"
+                display = f"[ir] {ir_tag}\n[web]\n{search_digest}\n\n[model]\n{web_ans}"
                 clean = _clean_for_history(web_ans)
                 self.history.append((user, clean))
                 self.memory.add_turn(user, clean)
@@ -413,7 +437,10 @@ class TinyChat:
                 )
                 self.history.append((user, msg))
                 self.memory.add_turn(user, msg)
-                return f"[web]\n{search_digest}\n\n[model]\n{msg}", search_digest
+                return (
+                    f"[ir] {ir_tag}\n[web]\n{search_digest}\n\n[model]\n{msg}",
+                    search_digest,
+                )
 
         def _raw_generate(prompt_user: str) -> str:
             # Keep retrieved memory in the neural prompt for SARA drafts
@@ -433,9 +460,10 @@ class TinyChat:
                 text = text.split("\n\n", 1)[0].strip()
             return text
 
-        # SARA for agentic / math / memory recall / explicit force
+        # SARA for agentic / math / memory recall / explicit force / IR gate
         sara_gate = (
             force_agent
+            or should_run_stage(ir, "sara")
             or looks_agentic(user)
             or looks_like_recall(user)
             or try_eval_math(user) is not None
@@ -470,7 +498,8 @@ class TinyChat:
                     or "I'm not sure I followed that — try a shorter question?"
                 )
             header = [
-                f"[sara] skills={len(sara.skills)} revised={sara.revised} reflect={sara.reflection}"
+                f"[ir] {ir_tag}",
+                f"[sara] skills={len(sara.skills)} revised={sara.revised} reflect={sara.reflection}",
             ]
             if sara.agent is not None:
                 header.append(
@@ -584,7 +613,7 @@ class TinyChat:
             )
 
         display = reply
-        header_parts = []
+        header_parts = [f"[ir] {ir_tag}"]
         if memory_block:
             header_parts.append(
                 f"[memory] used {len(memory_block)} chars "
@@ -592,8 +621,7 @@ class TinyChat:
             )
         if search_digest:
             header_parts.append(f"[web]\n{search_digest}")
-        if header_parts:
-            display = "\n".join(header_parts) + f"\n\n[model]\n{reply}"
+        display = "\n".join(header_parts) + f"\n\n[model]\n{reply}"
 
         clean = _clean_for_history(reply)
         self.history.append((user, clean))
