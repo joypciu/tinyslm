@@ -158,9 +158,12 @@ def compile_query(user: str, *, auto_search: bool = True) -> CognitiveIR:
         )
 
     if "compare" in q.lower() or re.search(r"\bvs\b|versus", q.lower()):
+        need = ["faq", "plan", "sara"]
+        if auto_search and needs_search(q):
+            need.append("search")
         return CognitiveIR(
             mode="compare",
-            need=["sara", "search"] if auto_search and needs_search(q) else ["sara"],
+            need=need,
             verify=["contrast"],
             confidence=0.72,
             rationale="compare",
@@ -228,7 +231,7 @@ def pipeline_stages(ir: CognitiveIR) -> List[str]:
         "plan": ["plan", "sara", "neural"],
         "swarm": ["swarm", "search", "sara"],
         "long_task": ["code", "plan", "long_task", "sara"],
-        "compare": ["sara", "search", "neural"],
+        "compare": ["faq", "plan", "sara", "search", "neural"],
         "faq": ["faq", "search", "neural"],
         "search": ["search", "faq", "neural"],
         "sara": ["memory", "sara", "neural"],

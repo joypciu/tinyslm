@@ -61,6 +61,21 @@ def test_chat_skips_swarm() -> None:
     assert not should_run_stage(ir, "swarm")
 
 
+def test_compare_prefers_faq_card() -> None:
+    ir = compile_query(
+        "Compare RAM and SSD for a laptop buyer: speed, persistence, and when each matters.",
+        auto_search=False,
+    )
+    assert ir.mode == "compare"
+    assert should_run_stage(ir, "faq")
+    from tiny_slm.knowledge import answer_from_faq
+
+    faq = answer_from_faq(
+        "Compare RAM and SSD for a laptop buyer: speed, persistence, and when each matters."
+    )
+    assert faq and "ram" in faq.lower() and "ssd" in faq.lower()
+
+
 def test_end_to_end_ir_in_reply() -> None:
     from tiny_slm.chat import TinyChat
 
@@ -82,6 +97,7 @@ def main() -> None:
         test_faq_mode,
         test_tag_roundtrip,
         test_chat_skips_swarm,
+        test_compare_prefers_faq_card,
         test_end_to_end_ir_in_reply,
     ]
     fails = []

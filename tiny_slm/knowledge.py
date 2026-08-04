@@ -78,8 +78,20 @@ _FAQ: List[Tuple[List[str], str]] = [
         "Wi-Fi is wireless networking that lets devices join a local network and reach the internet.",
     ),
     (
-        ["difference between ram and ssd", "ram vs ssd", "ram versus ssd", "compare ram", "ram and ssd"],
-        "RAM is fast temporary working memory; an SSD is slower long-term storage that keeps files when power is off. Buy enough RAM for smooth multitasking; buy SSD capacity for your files and apps.",
+        [
+            "difference between ram and ssd",
+            "ram vs ssd",
+            "ram versus ssd",
+            "compare ram and ssd",
+            "compare ram",
+            "ram and ssd",
+            "ssd for a laptop",
+        ],
+        (
+            "RAM is fast temporary working memory (speed for open apps; clears when power is off). "
+            "An SSD is persistent storage that keeps files when the laptop is off. "
+            "Buy enough RAM for smooth multitasking; buy SSD capacity for apps and files."
+        ),
     ),
     (
         ["what is a browser", "what's a browser", "what is web browser"],
