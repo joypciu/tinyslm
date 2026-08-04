@@ -137,6 +137,11 @@ def main() -> None:
         help="Freeze base weights; train LoRA and/or newly grown layers only.",
     )
     parser.add_argument(
+        "--lora-only",
+        action="store_true",
+        help="With --freeze-base: train LoRA adapters only (keep CSPE grown layers frozen).",
+    )
+    parser.add_argument(
         "--backup",
         action="store_true",
         help="Copy current tinyslm.pt to tinyslm_pre_expand.pt before overwriting.",
@@ -209,15 +214,22 @@ def main() -> None:
             config = model.config
             print(f"Grew layers {old_l} -> {new_l} (old blocks frozen-capable)")
         if args.adapter_rank and args.adapter_rank > 0:
+            from tiny_slm.adapters import count_lora_linears
+
             n_wrap = model.attach_adapters(rank=args.adapter_rank, alpha=args.adapter_alpha)
             config = model.config
-            print(f"Attached LoRA rank={args.adapter_rank} on {n_wrap} linears")
+            n_have = count_lora_linears(model)
+            print(
+                f"Attached LoRA rank={args.adapter_rank} "
+                f"(new wraps={n_wrap}, total LoRA linears={n_have})"
+            )
         if args.freeze_base:
-            stats = model.freeze_for_continual(train_new_layers=True)
+            stats = model.freeze_for_continual(train_new_layers=not args.lora_only)
             print(
                 f"Continual freeze: trainable={stats['trainable']:,} "
                 f"(lora={stats['lora_params']:,}, grown={stats['grown_layer_params']:,}, "
                 f"frozen={stats['frozen_params']:,})"
+                + (" [lora-only]" if args.lora_only else "")
             )
         model.to(device)
     else:

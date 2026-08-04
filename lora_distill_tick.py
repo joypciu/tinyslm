@@ -43,6 +43,7 @@ def main() -> None:
         "--adapter-rank",
         str(args.adapter_rank),
         "--freeze-base",
+        "--lora-only",
         "--backup",
         "--data-dir",
         str(tick_dir),

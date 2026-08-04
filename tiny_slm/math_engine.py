@@ -369,7 +369,24 @@ def _extract_expr_blob(text: str) -> Optional[str]:
         return None
     low = t.lower()
 
-    # integrate x^2 dx / integral of sin(x)
+    # definite integral: integrate x**2 from 0 to 1
+    m = re.search(
+        r"(?:integrate|integral of|∫)\s+(.+?)\s+from\s+([^\s]+)\s+to\s+([^\s,?]+)",
+        low,
+        re.I,
+    )
+    if m:
+        expr = m.group(1).strip(" .?")
+        # strip trailing dx / dvar
+        expr = re.sub(r"\s*d([a-z])\s*$", "", expr).strip()
+        var = "x"
+        vm = re.search(r"\b([a-z])\b", expr)
+        if vm:
+            var = vm.group(1)
+        a, b = m.group(2).strip(), m.group(3).strip(" .?")
+        return f"__defint__[{expr}][{var}][{a}][{b}]"
+
+    # integrate x^2 dx / integral of sin(x) (indefinite)
     m = re.search(
         r"(?:integrate|integral of|∫)\s+(.+?)(?:\s+d([a-z])\b|\s*$)",
         low,
@@ -377,8 +394,9 @@ def _extract_expr_blob(text: str) -> Optional[str]:
     )
     if m:
         expr = m.group(1).strip(" .?")
-        var = m.group(2) or "x"
-        return f"integrate({expr}, {var})"
+        if " from " not in expr:
+            var = m.group(2) or "x"
+            return f"integrate({expr}, {var})"
 
     m = re.search(r"(?:derivative of|differentiate)\s+(.+)$", low)
     if m:
@@ -791,6 +809,26 @@ def try_solve_math_once(text: str) -> Optional[str]:
                 if a.rows > 8:
                     return None
                 return f"Verified result: L2 norm = {a.norm()}."
+        except Exception:
+            return None
+    if blob.startswith("__defint__") and _HAS_SYMPY:
+        try:
+            m = re.match(r"__defint__\[(.+)\]\[([a-z])\]\[(.+)\]\[(.+)\]$", blob)
+            if m:
+                expr_s, var_s, a_s, b_s = m.groups()
+                local_dict = _sympy_locals()
+                expr = parse_expr(
+                    expr_s,
+                    local_dict=local_dict,
+                    transformations=_TRANSFORMS,
+                    evaluate=True,
+                )
+                var = sp.Symbol(var_s)
+                a = parse_expr(a_s, local_dict=local_dict, evaluate=True)
+                b = parse_expr(b_s, local_dict=local_dict, evaluate=True)
+                val = sp.integrate(expr, (var, a, b))
+                val = sp.simplify(val)
+                return f"Verified (symbolic): definite integral = {val}."
         except Exception:
             return None
     if blob.startswith("__gcd__"):

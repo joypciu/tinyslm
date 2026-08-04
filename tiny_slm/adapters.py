@@ -63,8 +63,13 @@ def _wrap_linear(module: nn.Module, attr: str, rank: int, alpha: float) -> bool:
     return True
 
 
+def count_lora_linears(model: nn.Module) -> int:
+    """How many LoRALinear wrappers are already attached."""
+    return sum(1 for mod in model.modules() if isinstance(mod, LoRALinear))
+
+
 def inject_lora(model: nn.Module, rank: int = 8, alpha: float = 16.0) -> int:
-    """Attach LoRA to attention + MLP projections. Returns number of wrapped linears."""
+    """Attach LoRA to attention + MLP projections. Returns number of *new* wraps."""
     from tiny_slm.model import CausalMQA, SwiGLUMLP  # local import avoids cycles
 
     n = 0
