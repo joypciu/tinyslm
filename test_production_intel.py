@@ -53,6 +53,9 @@ def test_basic_and_symbolic_math() -> None:
     assert ans13 and ("1/3" in ans13.replace(" ", "") or "0.333" in ans13), ans13
     ans14 = try_solve_math("solve x+y=5, x-y=1 for x,y")
     assert ans14 and ("3" in ans14) and ("2" in ans14), ans14
+    assert "= 5" in (try_solve_math("abs(3+4i)") or "")
+    ans15 = try_solve_math("(1+2i)*(3-i)")
+    assert ans15 and ("5" in ans15) and ("I" in ans15 or "i" in ans15.lower()), ans15
     action_pde, _ = math_policy("Solve the Navier-Stokes PDE for my thesis.")
     assert action_pde == "abstain"
 

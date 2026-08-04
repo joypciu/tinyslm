@@ -46,6 +46,7 @@ _MATH_CUES = re.compile(
     r"modulo|\bgcd\b|\blcm\b|combinator|permutation|"
     r"\blog\b|\bln\b|\bsin\b|\bcos\b|\btan\b|sqrt|factorial|"
     r"taylor|maclaurin|series expansion|dot product|cross product|\bnorm of\b|"
+    r"complex|modulus|\barg\b|"
     r"percent|squared|power of|calculus|algebra|linear algebra"
     r")\b|"
     r"[√∫∑∏∂∇]|\\frac|\\int|\\sum|"
@@ -626,6 +627,21 @@ def _extract_expr_blob(text: str) -> Optional[str]:
         ):
             return blob
 
+    # complex: (1+2i)*(3-i) / abs(3+4i) / arg(1+i)
+    m = re.search(r"(?:abs|modulus)\s*(?:of\s*)?\(?\s*([-\d.]+)\s*([+-])\s*([-\d.]+)\s*i\s*\)?", low)
+    if m:
+        return f"__cabs__{m.group(1)},{m.group(2)}{m.group(3)}"
+    m = re.search(r"(?:arg|argument|phase)\s*(?:of\s*)?\(?\s*([-\d.]+)\s*([+-])\s*([-\d.]+)\s*i\s*\)?", low)
+    if m:
+        return f"__carg__{m.group(1)},{m.group(2)}{m.group(3)}"
+    if re.search(r"\bi\b", low) and re.search(r"[\+\-\*]", low):
+        # Normalize a+bi forms for sympy (use I)
+        blob = re.sub(r"(?<=\d)\s*i\b", "*I", low)
+        blob = re.sub(r"\bi\b", "I", blob)
+        blob = re.sub(r"(?:compute|evaluate|calculate|what is)\s+", "", blob).strip(" ?.")
+        if blob and not _UNSAFE.search(blob):
+            return f"__ceval__{blob}"
+
     # bare expression
     if re.fullmatch(r"[\w\s\+\-\*/^().,=]+", t) and re.search(r"[\+\-\*/^]", t):
         return t.strip(" ?")
@@ -829,6 +845,34 @@ def try_solve_math_once(text: str) -> Optional[str]:
                 if a.rows > 8:
                     return None
                 return f"Verified result: L2 norm = {a.norm()}."
+        except Exception:
+            return None
+    if blob.startswith("__cabs__") and _HAS_SYMPY:
+        try:
+            re_s, im_s = blob[len("__cabs__") :].split(",", 1)
+            z = sp.Float(re_s) + sp.I * sp.Float(im_s)
+            return f"Verified result: |z| = {sp.Abs(z)}."
+        except Exception:
+            return None
+    if blob.startswith("__carg__") and _HAS_SYMPY:
+        try:
+            re_s, im_s = blob[len("__carg__") :].split(",", 1)
+            z = sp.Float(re_s) + sp.I * sp.Float(im_s)
+            return f"Verified (symbolic): arg(z) = {sp.arg(z)}."
+        except Exception:
+            return None
+    if blob.startswith("__ceval__") and _HAS_SYMPY:
+        try:
+            expr_s = blob[len("__ceval__") :]
+            local_dict = _sympy_locals()
+            val = parse_expr(
+                expr_s,
+                local_dict=local_dict,
+                transformations=_TRANSFORMS,
+                evaluate=True,
+            )
+            val = sp.simplify(sp.expand_complex(val))
+            return f"Verified (symbolic): {val}."
         except Exception:
             return None
     if blob.startswith("__linsys__") and _HAS_SYMPY:
