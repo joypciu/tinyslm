@@ -347,6 +347,7 @@ def _sympy_locals():
         "ln": sp.log,
         "log10": lambda x: sp.log(x, 10),
         "sqrt": sp.sqrt,
+        "Rational": sp.Rational,
         "Abs": sp.Abs,
         "factorial": sp.factorial,
         "diff": sp.diff,
@@ -563,6 +564,22 @@ def _extract_expr_blob(text: str) -> Optional[str]:
     m = re.search(r"(?:exp|e\s*\^\s*|e\s*\*\*\s*)\(?\s*([^\s)]+)\s*\)?", low)
     if m and not re.search(r"expect|explain|example", low):
         return f"exp({m.group(1).strip()})"
+
+    # sqrt / nth root
+    m = re.search(r"(?:square root|sqrt)\s*(?:of\s*)?\(?\s*([^\s)]+)\s*\)?", low)
+    if m:
+        return f"sqrt({m.group(1).strip()})"
+    m = re.search(r"(\d+)(?:st|nd|rd|th)\s+root\s*(?:of\s*)?\(?\s*([^\s)]+)\s*\)?", low)
+    if m:
+        return f"({m.group(2).strip()})**(Rational(1,{m.group(1)}))"
+
+    # degrees <-> radians
+    m = re.search(r"(\d+(?:\.\d+)?)\s*degrees?\s+to\s+radians?", low)
+    if m:
+        return f"__deg2rad__{m.group(1)}"
+    m = re.search(r"(\d+(?:\.\d+)?)\s*radians?\s+to\s+degrees?", low)
+    if m:
+        return f"__rad2deg__{m.group(1)}"
 
     # log / ln / log10
     m = re.search(r"(?:natural log|ln)\s*(?:of\s*)?\(?\s*([^\s)]+)\s*\)?", low)
@@ -865,6 +882,20 @@ def try_solve_math_once(text: str) -> Optional[str]:
                 if a.rows > 8:
                     return None
                 return f"Verified result: L2 norm = {a.norm()}."
+        except Exception:
+            return None
+    if blob.startswith("__deg2rad__") and _HAS_SYMPY:
+        try:
+            deg = float(blob[len("__deg2rad__") :])
+            rad = sp.simplify(sp.Rational(deg) * sp.pi / 180)
+            return f"Verified (symbolic): {deg:g} degrees = {rad} radians."
+        except Exception:
+            return None
+    if blob.startswith("__rad2deg__") and _HAS_SYMPY:
+        try:
+            rad = float(blob[len("__rad2deg__") :])
+            deg = sp.N(rad * 180 / sp.pi)
+            return f"Verified result: {rad:g} radians = {deg} degrees."
         except Exception:
             return None
     if blob.startswith("__cabs__") and _HAS_SYMPY:
