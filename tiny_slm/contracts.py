@@ -58,17 +58,25 @@ def contract_memory(goal: str, mem: str) -> ContractResult:
 
 
 def contract_swarm(answer: str, digest: str) -> ContractResult:
+    from tiny_slm.search import citation_hosts
+
     a = (answer or "").strip()
-    if len(a) >= 80 and "no strong passages" not in a.lower():
-        # Prefer answers that cite sources
-        has_src = "sources:" in a.lower() or "http" in (digest or "").lower()
-        return ContractResult(
-            "swarm",
-            True,
-            a[:900],
-            "cited" if has_src else "summary-ok",
-        )
-    return ContractResult("swarm", False, "", "weak-or-empty-swarm")
+    if len(a) < 80 or "no strong passages" in a.lower():
+        return ContractResult("swarm", False, "", "weak-or-empty-swarm")
+    hosts_d = citation_hosts(digest or "")
+    hosts_a = citation_hosts(a)
+    has_src = "sources:" in a.lower() or bool(hosts_a)
+    # Host-Diversity: multi-publisher digests must not collapse to one host
+    if len(hosts_d) >= 2 and len(hosts_a) < 2 and "sources:" not in a.lower():
+        return ContractResult("swarm", False, "", "host-diversity-fail")
+    if len(hosts_d) >= 2 and len(hosts_a) >= 2:
+        return ContractResult("swarm", True, a[:900], f"cited-hosts={len(hosts_a)}")
+    return ContractResult(
+        "swarm",
+        True,
+        a[:900],
+        "cited" if has_src else "summary-ok",
+    )
 
 
 def best_contract_answer(results: List[ContractResult]) -> Optional[str]:

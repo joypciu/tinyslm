@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 
 def _get_ddgs():
@@ -269,6 +269,26 @@ def extract_citations(digest: str, *, limit: int = 3) -> List[str]:
     return cites
 
 
+def citation_hosts(digest: str) -> List[str]:
+    """Unique hostnames from digest URLs (order-preserving)."""
+    hosts: List[str] = []
+    for url in re.findall(r"https?://([^\s/]+)", digest or "", flags=re.I):
+        h = url.lower().removeprefix("www.")
+        if h and h not in hosts:
+            hosts.append(h)
+    return hosts
+
+
+def host_diversity_ok(digest: str, *, min_hosts: int = 2) -> Tuple[bool, str]:
+    """Host-Diversity Quorum: prefer multi-publisher grounding when available."""
+    hosts = citation_hosts(digest)
+    if len(hosts) >= min_hosts:
+        return True, f"hosts={len(hosts)}"
+    if hosts:
+        return False, f"single-host:{hosts[0]}"
+    return False, "no-hosts"
+
+
 def attach_citations(answer: str, digest: str, *, max_chars: int = 520) -> str:
     """Append a short Sources ledger so web answers stay auditable."""
     ans = (answer or "").strip()
@@ -276,10 +296,24 @@ def attach_citations(answer: str, digest: str, *, max_chars: int = 520) -> str:
         return ""
     if "Sources:" in ans:
         return ans[:max_chars]
-    cites = extract_citations(digest, limit=3)
-    if not cites:
+    # Prefer diversified hosts when choosing which citations to show
+    cites = extract_citations(digest, limit=6)
+    hosts_seen: List[str] = []
+    diversified: List[str] = []
+    rest: List[str] = []
+    for c in cites:
+        hm = re.search(r"https?://([^/\s>]+)", c, re.I)
+        if hm:
+            h = hm.group(1).lower().removeprefix("www.")
+            if h not in hosts_seen:
+                hosts_seen.append(h)
+                diversified.append(c)
+                continue
+        rest.append(c)
+    ordered = (diversified + rest)[:3]
+    if not ordered:
         return ans[:max_chars]
-    ledger = " Sources: " + "; ".join(cites)
+    ledger = " Sources: " + "; ".join(ordered)
     out = ans.rstrip() + ledger
     return out[:max_chars]
 

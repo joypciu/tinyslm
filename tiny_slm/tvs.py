@@ -134,10 +134,29 @@ def evidence_quorum(digest: str, query: str, *, min_hits: int = 2) -> Tuple[bool
     ans = "From the web: " + uniq[0]
     if len(uniq) > 1:
         ans += " Also: " + uniq[1]
-    from tiny_slm.search import attach_citations
+    from tiny_slm.search import attach_citations, citation_hosts, host_diversity_ok
 
+    # Host-Diversity Quorum: when ≥2 publishers exist, refuse single-host grounding
+    hosts = citation_hosts(text)
+    if len(hosts) >= 2:
+        ok_h, hnote = host_diversity_ok(text, min_hosts=2)
+        if not ok_h:
+            return False, "", f"host-diversity-fail {hnote}"
     ans = attach_citations(ans, text, max_chars=520)
-    return True, ans, f"quorum={len(uniq)}"
+    # After attach, require the ledger to mention ≥2 hosts when available
+    if len(hosts) >= 2:
+        cited = citation_hosts(ans)
+        if len(cited) < 2 and len(set(hosts)) >= 2:
+            # Force multi-host ledger into answer if attach truncated oddly
+            from tiny_slm.search import extract_citations
+
+            extra = extract_citations(text, limit=4)
+            if len(extra) >= 2 and "Sources:" not in ans:
+                ans = ans.rstrip() + " Sources: " + "; ".join(extra[:3])
+            cited = citation_hosts(ans)
+            if len(cited) < 2:
+                return False, "", "host-diversity-fail cited<2"
+    return True, ans, f"quorum={len(uniq)};hosts={len(hosts)}"
 
 
 def safe_micro_exec(code: str, *, timeout_s: float = 0.4) -> Tuple[bool, str]:

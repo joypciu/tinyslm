@@ -8,11 +8,34 @@ from tiny_slm.contracts import best_contract_answer, contract_memory, contract_s
 
 def test_search_contract_quorum() -> None:
     digest = (
-        "1. Python 3.12\nhttps://a\nPython 3.12 improves errors and speed.\n\n"
-        "2. Release notes\nhttps://b\nLatest Python release adds typing features.\n"
+        "1. Python 3.12\nhttps://docs.python.org/3.12/\n"
+        "Python 3.12 improves errors and speed.\n\n"
+        "2. Release notes\nhttps://www.python.org/downloads/\n"
+        "Latest Python release adds typing features.\n"
     )
     cr = contract_search("latest Python release", digest)
     assert cr.ok and "python" in cr.artifact.lower()
+    assert "Sources:" in cr.artifact
+
+
+def test_host_diversity() -> None:
+    from tiny_slm.search import citation_hosts, host_diversity_ok
+    from tiny_slm.tvs import evidence_quorum
+
+    digest = (
+        "1. Ada Lovelace\nhttps://en.wikipedia.org/wiki/Ada_Lovelace\n"
+        "Ada Lovelace was a mathematician and early programmer.\n\n"
+        "2. Biography\nhttps://www.britannica.com/biography/Ada-Lovelace\n"
+        "Ada Lovelace wrote notes on Babbage's analytical engine.\n"
+    )
+    hosts = citation_hosts(digest)
+    assert len(hosts) >= 2
+    ok_h, _ = host_diversity_ok(digest, min_hosts=2)
+    assert ok_h
+    ok, ans, note = evidence_quorum(digest, "Who was Ada Lovelace?", min_hits=2)
+    assert ok and "ada" in ans.lower()
+    assert len(citation_hosts(ans)) >= 2 or "Sources:" in ans
+    assert "hosts=" in note
 
 
 def test_memory_contract() -> None:
@@ -49,6 +72,7 @@ def test_agent_tools_contract_lines() -> None:
 def main() -> None:
     tests = [
         test_search_contract_quorum,
+        test_host_diversity,
         test_memory_contract,
         test_best_answer_prefers_search,
         test_agent_tools_contract_lines,
