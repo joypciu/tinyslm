@@ -20,7 +20,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Tuple
 
-from tiny_slm.code_verify import extract_python_blocks, verify_python_syntax
+from tiny_slm.code_verify import extract_python_blocks, run_spec_asserts, verify_python_syntax
 from tiny_slm.knowledge import (
     answer_from_code_template,
     answer_from_faq,
@@ -301,26 +301,28 @@ def run_tvs(
                 steps,
                 abstained=True,
             )
-        ok_syn, syn_note = verify_python_syntax(code)
-        steps.append(TVSStep("VERIFY", syn_note))
-        if not ok_syn:
+        ok_spec, spec_note = run_spec_asserts(code, user)
+        steps.append(TVSStep("VERIFY", spec_note))
+        if not ok_spec:
             rescue = answer_from_code_template(user)
-            if rescue and verify_python_syntax(rescue)[0]:
-                steps.append(TVSStep("ANSWER", "template-rescue"))
-                return TVSResult(True, rescue, domain, steps)
+            if rescue:
+                ok_r, note_r = run_spec_asserts(rescue, user)
+                steps.append(TVSStep("VERIFY", note_r))
+                if ok_r:
+                    steps.append(TVSStep("ANSWER", "template-rescue"))
+                    return TVSResult(True, rescue, domain, steps)
             return TVSResult(
                 False,
-                "Generated code failed syntax verification; I will not ship it.",
+                "Generated code failed Spec-Assert verification; I will not ship it.",
                 domain,
                 steps,
                 abstained=True,
             )
         ok_ex, ex_note = safe_micro_exec(code)
         steps.append(TVSStep("VERIFY", ex_note))
-        if ok_ex or ex_note.startswith("syntax"):
+        if ok_ex or ex_note.startswith("syntax") or spec_note.startswith("spec-assert"):
             steps.append(TVSStep("ANSWER", "verified-code"))
             return TVSResult(True, code, domain, steps)
-        # Template with syntax ok but smoke fail — still OK if template-sourced
         if answer_from_code_template(user) == code:
             steps.append(TVSStep("ANSWER", "template-syntax-ok"))
             return TVSResult(True, code, domain, steps)

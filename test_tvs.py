@@ -20,10 +20,22 @@ def test_math_tvs() -> None:
 
 
 def test_code_tvs_and_micro_exec() -> None:
+    from tiny_slm.code_verify import run_spec_asserts
+
     r = run_tvs("Write a Python function that adds two numbers.", auto_search=False)
     assert r.ok and "def add" in r.answer.lower()
     ok, note = safe_micro_exec("def add(a, b):\n    return a + b\n")
     assert ok, note
+    ok2, note2 = run_spec_asserts(
+        "def add(a, b):\n    return a + b\n",
+        "Write a Python function that adds two numbers.",
+    )
+    assert ok2 and note2.startswith("spec-assert"), note2
+    bad, _ = run_spec_asserts(
+        "def add(a, b):\n    return a - b\n",
+        "Write a Python function that adds two numbers.",
+    )
+    assert not bad
 
 
 def test_evidence_quorum() -> None:

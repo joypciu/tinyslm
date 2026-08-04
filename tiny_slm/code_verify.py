@@ -63,6 +63,65 @@ def looks_like_prose(text: str) -> bool:
     return bool(re.search(r"[.!?]", t)) and not re.search(r"[=\[\]{}():]", t)
 
 
+def _infer_spec_asserts(user: str, fn_names: List[str]) -> List[str]:
+    """Derive tiny behavioral asserts from the user ask (Spec-Assert Coding)."""
+    u = (user or "").lower()
+    names = set(fn_names)
+    asserts: List[str] = []
+    if "add" in names and any(w in u for w in ("add", "adds", "sum two")):
+        asserts.append("assert add(2, 3) == 5")
+    if "safe_div" in names or ("div" in u and "zero" in u):
+        if "safe_div" in names:
+            asserts.extend(["assert safe_div(10, 2) == 5", "assert safe_div(10, 0) is None"])
+    if "word_count" in names or "word count" in u:
+        if "word_count" in names:
+            asserts.append("assert word_count('a a b') == {'a': 2, 'b': 1}")
+    if "fib" in names or "fibonacci" in u:
+        if "fib" in names:
+            asserts.extend(["assert fib(0) == 0", "assert fib(1) == 1", "assert fib(6) == 8"])
+    return asserts
+
+
+def run_spec_asserts(code: str, user: str = "") -> Tuple[bool, str]:
+    """Syntax + optional Spec-Assert micro-tests for known pure functions."""
+    ok, note = verify_python_syntax(code)
+    if not ok:
+        return False, note
+    blocks = extract_python_blocks(code)
+    src = blocks[0] if blocks else (code or "").strip()
+    if not src:
+        return False, "empty"
+    if re.search(
+        r"\b(import|open|exec|eval|compile|input|__|os|sys|subprocess|socket)\b",
+        src,
+        re.I,
+    ):
+        return True, "syntax-only-unsafe-skip"
+    try:
+        tree = ast.parse(src)
+    except SyntaxError as exc:
+        return False, f"syntax-error: {exc.msg}"
+    fn_names = [n.name for n in tree.body if isinstance(n, ast.FunctionDef)]
+    asserts = _infer_spec_asserts(user, fn_names)
+    if not asserts:
+        return True, note
+    ns: dict = {"__builtins__": {
+        "range": range, "len": len, "min": min, "max": max, "sum": sum,
+        "abs": abs, "enumerate": enumerate, "list": list, "dict": dict,
+        "str": str, "int": int, "float": float, "bool": bool,
+        "None": None, "True": True, "False": False,
+    }}
+    try:
+        exec(compile(tree, "<spec>", "exec"), ns, ns)
+        for line in asserts:
+            exec(line, ns, ns)
+        return True, f"spec-assert:{len(asserts)}"
+    except AssertionError:
+        return False, "spec-assert-fail"
+    except Exception as exc:
+        return False, f"spec-exec:{type(exc).__name__}"
+
+
 def require_verified_code(user: str, answer: str) -> Optional[str]:
     """If the user asked for code, return answer only when syntax verifies; else None."""
     ulow = (user or "").lower()
@@ -82,7 +141,7 @@ def require_verified_code(user: str, answer: str) -> Optional[str]:
     )
     if not wants_code:
         return answer
-    ok, _ = verify_python_syntax(answer)
+    ok, _ = run_spec_asserts(answer, user)
     return answer if ok else None
 
 
