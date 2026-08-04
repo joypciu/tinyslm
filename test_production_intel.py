@@ -29,6 +29,10 @@ def test_basic_and_symbolic_math() -> None:
         "Bayes: P(B|A)=0.9, P(A)=0.01, P(B)=0.1, what is P(A|B)?"
     )
     assert ans7 and "0.09" in ans7, ans7
+    ans8 = try_solve_math("hessian of x**3 + x*y**2 w.r.t. [x, y]")
+    assert ans8 and "6*x" in ans8.replace(" ", ""), ans8
+    assert "= 6" in (try_solve_math("gcd of 48 and 18") or "")
+    assert "= 36" in (try_solve_math("lcm(12, 18)") or "")
     action_pde, _ = math_policy("Solve the Navier-Stokes PDE for my thesis.")
     assert action_pde == "abstain"
 

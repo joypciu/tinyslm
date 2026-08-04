@@ -436,6 +436,30 @@ def _extract_expr_blob(text: str) -> Optional[str]:
     if m:
         return f"__jacobian__[{m.group(1)}][{m.group(2)}]"
 
+    # hessian of f(x,y) / hessian of x**3 + y**3 w.r.t. [x,y]
+    m = re.search(
+        r"hessian\s+of\s+(.+?)(?:\s*(?:w\.?r\.?t\.?|with respect to)\s*\[(.+?)\])?\s*$",
+        low,
+    )
+    if m:
+        expr = m.group(1).strip(" .?")
+        vars_ = (m.group(2) or "x, y").strip()
+        return f"__hessian__[{expr}][{vars_}]"
+
+    # gcd / lcm
+    m = re.search(r"\bgcd\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)", low)
+    if m:
+        return f"__gcd__{m.group(1)},{m.group(2)}"
+    m = re.search(r"\blcm\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)", low)
+    if m:
+        return f"__lcm__{m.group(1)},{m.group(2)}"
+    m = re.search(r"(?:greatest common divisor|gcd)\s+of\s+(\d+)\s+and\s+(\d+)", low)
+    if m:
+        return f"__gcd__{m.group(1)},{m.group(2)}"
+    m = re.search(r"(?:least common multiple|lcm)\s+of\s+(\d+)\s+and\s+(\d+)", low)
+    if m:
+        return f"__lcm__{m.group(1)},{m.group(2)}"
+
     # summation: sum k=1 to n of k**2
     m = re.search(
         r"sum(?:mation)?\s+([a-z])\s*=\s*(\d+)\s+to\s+(\d+)\s+of\s+(.+)$",
@@ -597,6 +621,43 @@ def try_solve_math_once(text: str) -> Optional[str]:
             if m:
                 mat = sp.Matrix(sp.sympify(m.group(1)))
                 return f"Verified (symbolic): {mat.eigenvals()}."
+        except Exception:
+            return None
+    if blob.startswith("__gcd__"):
+        try:
+            a, b = blob[len("__gcd__") :].split(",")
+            import math
+
+            return f"Verified result: gcd({a}, {b}) = {math.gcd(int(a), int(b))}."
+        except Exception:
+            return None
+    if blob.startswith("__lcm__"):
+        try:
+            a, b = blob[len("__lcm__") :].split(",")
+            import math
+
+            aa, bb = int(a), int(b)
+            return f"Verified result: lcm({aa}, {bb}) = {math.lcm(aa, bb)}."
+        except Exception:
+            return None
+    # hessian of scalar f
+    if blob.startswith("__hessian__") and _HAS_SYMPY:
+        try:
+            m = re.match(r"__hessian__\[(.+)\]\[(.+)\]$", blob)
+            if m:
+                expr_s, vars_s = m.group(1), m.group(2)
+                vars_ = [v.strip() for v in vars_s.split(",") if v.strip()]
+                if 1 <= len(vars_) <= 3:
+                    local_dict = _sympy_locals()
+                    expr = parse_expr(
+                        expr_s,
+                        local_dict=local_dict,
+                        transformations=_TRANSFORMS,
+                        evaluate=True,
+                    )
+                    X = sp.Matrix([sp.Symbol(v) for v in vars_])
+                    H = sp.hessian(expr, X)
+                    return f"Verified (symbolic): {H}."
         except Exception:
             return None
     # jacobian of vector-valued map
