@@ -31,6 +31,7 @@ _MATH_SEEDS: List[str] = [
     "dot product of [1, 2, 3] and [4, 1, 2]",
     "norm of [3, 4]",
     "mean of [1, 2, 3, 4, 5]",
+    "[[1,2],[3,4]] times [[0,1],[1,0]]",
 ]
 
 _CODE_SEEDS: List[str] = [
@@ -64,10 +65,15 @@ def seed_verified_traces(
     *,
     path=DEFAULT_TRACE_PATH,
 ) -> int:
-    """Append verified seeds; returns number of new records written."""
+    """Append verified seeds; skip users already present (idempotent)."""
     ts = store or TraceStore(path)
+    existing = {t.user.strip().lower() for t in ts.load()}
     n = 0
     for user, answer, mode, verify in collect_verified_seeds():
+        key = user.strip().lower()
+        if key in existing:
+            continue
         if ts.record(user, answer, mode=mode, source="seed-verified", verify=verify):
+            existing.add(key)
             n += 1
     return n

@@ -25,6 +25,9 @@ def test_seed_writes_jsonl() -> None:
         st = store.stats()
         assert st["count"] == n
         assert st["by_mode"].get("math", 0) >= 8
+        # Idempotent: second pass should add 0
+        assert seed_verified_traces(store) == 0
+        assert store.stats()["count"] == n
 
 
 def main() -> None:

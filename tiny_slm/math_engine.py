@@ -437,6 +437,14 @@ def _extract_expr_blob(text: str) -> Optional[str]:
     if m:
         return f"__inv__{m.group(1)}"
 
+    # matrix multiply: [[1,2],[3,4]] times [[0,1],[1,0]]
+    m = re.search(
+        r"(\[\[.+?\]\])\s*(?:times|multiplied by|\*)\s*(\[\[.+?\]\])",
+        low,
+    )
+    if m:
+        return f"__matmul__{m.group(1)}@@{m.group(2)}"
+
     # trace of [[a,b],[c,d]]
     m = re.search(r"trace\s+of\s*(\[\[.+?\]\])", low)
     if m:
@@ -730,6 +738,18 @@ def try_solve_math_once(text: str) -> Optional[str]:
             if mat.det() == 0:
                 return "Verified: matrix is singular (not invertible)."
             return f"Verified (symbolic): {mat.inv()}."
+        except Exception:
+            return None
+    if blob.startswith("__matmul__") and _HAS_SYMPY:
+        try:
+            left_s, right_s = blob[len("__matmul__") :].split("@@", 1)
+            a = sp.Matrix(sp.sympify(left_s))
+            b = sp.Matrix(sp.sympify(right_s))
+            if a.rows > 4 or a.cols > 4 or b.rows > 4 or b.cols > 4:
+                return None
+            if a.cols != b.rows:
+                return None
+            return f"Verified (symbolic): {a * b}."
         except Exception:
             return None
     if blob.startswith("__trace__") and _HAS_SYMPY:

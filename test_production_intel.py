@@ -47,6 +47,8 @@ def test_basic_and_symbolic_math() -> None:
     assert "2" in (try_solve_math("variance of [1, 2, 3, 4, 5]") or "")
     assert "= 120" in (try_solve_math("factorial of 5") or "")
     assert "= 60" in (try_solve_math("P(5, 3)") or "")
+    ans12 = try_solve_math("[[1,2],[3,4]] times [[0,1],[1,0]]")
+    assert ans12 and ("2" in ans12) and ("Matrix" in ans12 or "[" in ans12), ans12
     action_pde, _ = math_policy("Solve the Navier-Stokes PDE for my thesis.")
     assert action_pde == "abstain"
 
