@@ -113,9 +113,18 @@ def decide_route(
             allow_neural=False,
         )
 
+    # --- Code cards (match even when IR says chat — e.g. "How do I reverse…") ---
+    if answer_from_code_template(q):
+        ir.mode = "code"
+        ir.need = ["code"]
+        ir.verify = ["syntax", "spec"]
+        ir.confidence = max(ir.confidence, 0.92)
+        ir.rationale = "code-card"
+        return RouteDecision("grounded", ir, "code-card", allow_neural=False)
+
     # --- Coding / long tasks → agentic grounded (templates + verify) ---
     if ir.mode in ("code", "long_task") or looks_long_task(q):
-        if answer_from_code_template(q) or answer_from_plan_template(q):
+        if answer_from_plan_template(q):
             return RouteDecision("grounded", ir, "code-or-plan-card", allow_neural=False)
         return RouteDecision("agent", ir, "code-agentic", allow_neural=False)
 

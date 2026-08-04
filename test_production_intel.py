@@ -25,8 +25,19 @@ def test_basic_and_symbolic_math() -> None:
     assert ans5 and ("x" in ans5) and ("x**3" in ans5.replace(" ", "") or "x^3" in ans5), ans5
     ans6 = try_solve_math("jacobian of [x**2*y, x+y] w.r.t. [x, y]")
     assert ans6 and ("2" in ans6) and ("Matrix" in ans6 or "[" in ans6), ans6
+    ans7 = try_solve_math(
+        "Bayes: P(B|A)=0.9, P(A)=0.01, P(B)=0.1, what is P(A|B)?"
+    )
+    assert ans7 and "0.09" in ans7, ans7
     action_pde, _ = math_policy("Solve the Navier-Stokes PDE for my thesis.")
     assert action_pde == "abstain"
+
+
+def test_code_card_routing() -> None:
+    r = decide_route("How do I reverse a string in Python?", auto_search=False)
+    assert r.action == "grounded" and r.reason == "code-card"
+    r2 = decide_route("Sort a list in Python.", auto_search=False)
+    assert r2.action == "grounded"
 
 
 def test_research_math_abstains() -> None:
@@ -101,6 +112,7 @@ def main() -> None:
         test_basic_and_symbolic_math,
         test_research_math_abstains,
         test_router_actions,
+        test_code_card_routing,
         test_code_verify,
         test_chat_math_and_abstain,
         test_chat_coding_verified,

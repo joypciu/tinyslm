@@ -188,9 +188,56 @@ def looks_like_research_math(text: str) -> bool:
     )
 
 
+def _try_bayes(text: str) -> Optional[str]:
+    """Verified Bayes: P(A|B) = P(B|A) P(A) / P(B) when all three priors given."""
+    t = (text or "").lower()
+    if "bayes" not in t and "p(a|b)" not in t and "posterior" not in t:
+        return None
+
+    def _grab(label: str) -> Optional[float]:
+        m = re.search(
+            rf"p\s*\(\s*{label}\s*\)\s*=\s*([0-9]*\.?[0-9]+)",
+            t,
+        )
+        if not m:
+            m = re.search(
+                rf"p\s*\(\s*{label}\s*\)\s*(?:is|equals)\s*([0-9]*\.?[0-9]+)",
+                t,
+            )
+        return float(m.group(1)) if m else None
+
+    p_b_given_a = _grab(r"b\s*\|\s*a")
+    p_a = _grab(r"a")
+    p_b = _grab(r"b")
+    # Also accept likelihood/prior/evidence wording
+    if p_b_given_a is None:
+        m = re.search(r"likelihood\s*=\s*([0-9]*\.?[0-9]+)", t)
+        p_b_given_a = float(m.group(1)) if m else None
+    if p_a is None:
+        m = re.search(r"prior\s*=\s*([0-9]*\.?[0-9]+)", t)
+        p_a = float(m.group(1)) if m else None
+    if p_b is None:
+        m = re.search(r"evidence\s*=\s*([0-9]*\.?[0-9]+)", t)
+        p_b = float(m.group(1)) if m else None
+    if p_b_given_a is None or p_a is None or p_b is None:
+        return None
+    if not (0 < p_b <= 1 and 0 <= p_a <= 1 and 0 <= p_b_given_a <= 1):
+        return None
+    post = (p_b_given_a * p_a) / p_b
+    if post > 1 + 1e-9:
+        return None  # inconsistent inputs — abstain rather than invent
+    return (
+        f"Verified Bayes: P(A|B) = P(B|A)P(A)/P(B) = "
+        f"({p_b_given_a}*{p_a})/{p_b} = {post:.6g}."
+    )
+
+
 def _legacy_eval(text: str) -> Optional[str]:
     """Original integer-safe path (no sympy required)."""
     t = (text or "").lower()
+    bayes = _try_bayes(text)
+    if bayes:
+        return bayes
     # compound first (before bare percent steals the match)
     pct_add = re.search(
         r"what\s+is\s+(\d+)\s*(?:%|percent)\s*of\s+(\d+)\s*,?\s*then\s+add\s+(\d+)",
