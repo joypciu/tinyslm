@@ -408,6 +408,16 @@ def _extract_expr_blob(text: str) -> Optional[str]:
     if m:
         return f"Matrix({m.group(1)}).eigenvals()"
 
+    # inverse of [[a,b],[c,d]]
+    m = re.search(r"inverse\s+of\s*(\[\[.+?\]\])", low)
+    if m:
+        return f"__inv__{m.group(1)}"
+
+    # trace of [[a,b],[c,d]]
+    m = re.search(r"trace\s+of\s*(\[\[.+?\]\])", low)
+    if m:
+        return f"__trace__{m.group(1)}"
+
     # taylor / maclaurin: "taylor series of sin(x) around 0 order 5"
     m = re.search(
         r"(?:taylor|maclaurin)\s+(?:series\s+)?(?:expand\s+|of\s+)(.+?)"
@@ -649,6 +659,26 @@ def try_solve_math_once(text: str) -> Optional[str]:
             if m:
                 mat = sp.Matrix(sp.sympify(m.group(1)))
                 return f"Verified (symbolic): {mat.eigenvals()}."
+        except Exception:
+            return None
+    if blob.startswith("__inv__") and _HAS_SYMPY:
+        try:
+            raw = blob[len("__inv__") :]
+            mat = sp.Matrix(sp.sympify(raw))
+            if mat.rows > 4 or mat.cols > 4 or mat.rows != mat.cols:
+                return None
+            if mat.det() == 0:
+                return "Verified: matrix is singular (not invertible)."
+            return f"Verified (symbolic): {mat.inv()}."
+        except Exception:
+            return None
+    if blob.startswith("__trace__") and _HAS_SYMPY:
+        try:
+            raw = blob[len("__trace__") :]
+            mat = sp.Matrix(sp.sympify(raw))
+            if mat.rows > 6 or mat.cols > 6:
+                return None
+            return f"Verified result: trace = {mat.trace()}."
         except Exception:
             return None
     if blob.startswith("__gcd__"):
