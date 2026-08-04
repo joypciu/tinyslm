@@ -19,9 +19,13 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_TRACE_PATH = ROOT / "checkpoints" / "success_traces.jsonl"
 
 _LOW_QUALITY = re.compile(
-    r"(empty reply|not sure i followed|try a shorter|gibberish|�)",
+    r"(empty reply|not sure i followed|try a shorter|gibberish|�|"
+    r"i don't have a verified answer|will not invent|will not guess|"
+    r"i won't guess|fail-closed|please rephrase)",
     re.I,
 )
+
+_SKIP_MODES = frozenset({"abstain", "empty"})
 
 
 @dataclass
@@ -41,7 +45,15 @@ class SuccessTrace:
         return d
 
 
-def looks_distillable(answer: str, *, min_len: int = 8, max_len: int = 900) -> bool:
+def looks_distillable(
+    answer: str,
+    *,
+    min_len: int = 8,
+    max_len: int = 900,
+    mode: str = "",
+) -> bool:
+    if (mode or "").strip().lower() in _SKIP_MODES:
+        return False
     a = (answer or "").strip()
     if len(a) < min_len or len(a) > max_len:
         return False
@@ -82,14 +94,18 @@ class TraceStore:
         if not self.enabled:
             return False
         body = strip_display_headers(answer) if "[model]" in (answer or "") else (answer or "").strip()
-        if not looks_distillable(body):
+        mode_s = (mode or "chat")[:40]
+        if not looks_distillable(body, mode=mode_s):
             return False
         if not (user or "").strip():
+            return False
+        # Never log abstain paths into the distill fuel
+        if mode_s.strip().lower() in _SKIP_MODES or (source or "").lower().startswith("abstain"):
             return False
         trace = SuccessTrace(
             user=user.strip()[:500],
             answer=body[:900],
-            mode=(mode or "chat")[:40],
+            mode=mode_s,
             source=(source or "unknown")[:40],
             ir_tag=(ir_tag or "")[:240],
             verify=list(verify or [])[:6],
@@ -143,7 +159,11 @@ def traces_to_chat_corpus(
     max_items: int = 400,
 ) -> str:
     """Format traces as TinySLM chat training text (with light upsampling)."""
-    items = [t for t in traces if looks_distillable(t.answer) and t.user.strip()]
+    items = [
+        t
+        for t in traces
+        if t.user.strip() and looks_distillable(t.answer, mode=t.mode)
+    ]
     items = items[-max_items:]
     blocks: List[str] = []
     for t in items:

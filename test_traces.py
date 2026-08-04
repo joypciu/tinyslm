@@ -16,6 +16,11 @@ def test_looks_distillable() -> None:
     assert looks_distillable("2 + 2 equals 4.")
     assert not looks_distillable("I'm not sure I followed that — try a shorter question?")
     assert not looks_distillable("hi")
+    assert not looks_distillable(
+        "I don't have a verified answer for that, and I won't guess.",
+        mode="faq",
+    )
+    assert not looks_distillable("Some long abstain text that looks ok.", mode="abstain")
 
 
 def test_strip_headers() -> None:
@@ -41,6 +46,12 @@ def test_store_roundtrip(tmp_path: Path | None = None) -> None:
         "I'm not sure I followed that — try a shorter question?",
         mode="chat",
         source="neural",
+    )
+    assert not store.record(
+        "Prove Riemann",
+        "I will not invent a proof for open research math.",
+        mode="abstain",
+        source="abstain",
     )
     rows = store.load()
     assert len(rows) == 1
