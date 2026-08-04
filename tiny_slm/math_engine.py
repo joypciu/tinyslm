@@ -45,6 +45,7 @@ _MATH_CUES = re.compile(
     r"probability|bayes|expectation|variance|binomial|"
     r"modulo|\bgcd\b|\blcm\b|combinator|permutation|"
     r"\blog\b|\bln\b|\bsin\b|\bcos\b|\btan\b|sqrt|factorial|"
+    r"taylor|maclaurin|series expansion|"
     r"percent|squared|power of|calculus|algebra|linear algebra"
     r")\b|"
     r"[√∫∑∏∂∇]|\\frac|\\int|\\sum|"
@@ -294,6 +295,7 @@ def _sympy_locals():
         "det": sp.det,
         "Eq": sp.Eq,
         "summation": sp.summation,
+        "series": sp.series,
     }
 
 
@@ -358,6 +360,26 @@ def _extract_expr_blob(text: str) -> Optional[str]:
     m = re.search(r"eigenvalues?\s+of\s*(\[\[.+?\]\])", low)
     if m:
         return f"Matrix({m.group(1)}).eigenvals()"
+
+    # taylor / maclaurin: "taylor series of sin(x) around 0 order 5"
+    m = re.search(
+        r"(?:taylor|maclaurin)\s+(?:series\s+)?(?:expand\s+|of\s+)(.+?)"
+        r"(?:\s+(?:around|at|about)\s+([-\d.]+|0))?"
+        r"(?:\s+(?:to\s+)?(?:order|n\s*=)\s*(\d+))",
+        low,
+    )
+    if m:
+        expr = m.group(1).strip(" .?")
+        point = m.group(2) or "0"
+        order = m.group(3) or "5"
+        # Infer variable from expr
+        var = "x"
+        vm = re.search(r"\b([a-z])\b", expr)
+        if vm:
+            var = vm.group(1)
+        n = int(order)
+        if 1 <= n <= 12:
+            return f"series({expr}, {var}, {point}, {n})"
 
     # summation: sum k=1 to n of k**2
     m = re.search(
@@ -522,6 +544,30 @@ def try_solve_math_once(text: str) -> Optional[str]:
                 return f"Verified (symbolic): {mat.eigenvals()}."
         except Exception:
             return None
+    # series(expr, var, point, n) — parse_expr can mishandle Order terms
+    if blob.startswith("series(") and _HAS_SYMPY:
+        try:
+            m = re.match(
+                r"series\((.+),\s*([a-z]),\s*([^,]+),\s*(\d+)\)$",
+                blob,
+            )
+            if m:
+                expr_s, var_s, point_s, n_s = m.groups()
+                local_dict = _sympy_locals()
+                expr = parse_expr(
+                    expr_s,
+                    local_dict=local_dict,
+                    transformations=_TRANSFORMS,
+                    evaluate=True,
+                )
+                var = sp.Symbol(var_s)
+                point = parse_expr(point_s, local_dict=local_dict, evaluate=True)
+                n = int(n_s)
+                if 1 <= n <= 12:
+                    ser = sp.series(expr, var, point, n)
+                    return f"Verified (symbolic): {ser}."
+        except Exception:
+            return None
     out = _eval_sympy(blob)
     if out is None:
         return None
@@ -553,6 +599,13 @@ def math_policy(text: str) -> Tuple[str, Optional[str]]:
 
 def abstain_math_message(user: str) -> str:
     research = looks_like_research_math(user)
+    ulow = (user or "").lower()
+    if re.search(r"\b(pde|partial differential|navier|schrodinger)\b", ulow):
+        return (
+            "That looks like an open or research-grade PDE/analysis ask. "
+            "I only ship machine-checkable CAS results (integrals, Taylor series, "
+            "eigenvalues, etc.) and will not invent a proof or closed form."
+        )
     if research:
         return (
             "I can help with research-level math only when the problem is stated as a "

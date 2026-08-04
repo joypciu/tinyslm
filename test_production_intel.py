@@ -21,6 +21,10 @@ def test_basic_and_symbolic_math() -> None:
     assert ans3 and ("-1" in ans3 and "1" in ans3), ans3
     ans4 = try_solve_math("eigenvalues of [[1,2],[2,1]]")
     assert ans4 and ("-1" in ans4 and "3" in ans4), ans4
+    ans5 = try_solve_math("taylor series of sin(x) around 0 order 5")
+    assert ans5 and ("x" in ans5) and ("x**3" in ans5.replace(" ", "") or "x^3" in ans5), ans5
+    action_pde, _ = math_policy("Solve the Navier-Stokes PDE for my thesis.")
+    assert action_pde == "abstain"
 
 
 def test_research_math_abstains() -> None:
