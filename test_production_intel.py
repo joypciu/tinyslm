@@ -10,12 +10,17 @@ from tiny_slm.policy import decide_route
 def test_basic_and_symbolic_math() -> None:
     assert "4" in (try_solve_math("What is 2 + 2?") or "")
     assert "20" in (try_solve_math("What is 10 percent of 200?") or "")
+    assert "48" in (try_solve_math("What is 15 percent of 240, then add 12?") or "")
+    assert "5050" in (try_solve_math("sum from 1 to 100") or "")
+    assert "12" in (try_solve_math("what is 2 + 2, then multiply by 3") or "")
     ans = try_solve_math("integrate x**2")
     assert ans and ("x**3" in ans.replace(" ", "") or "x^3" in ans), ans
     ans2 = try_solve_math("derivative of sin(x)")
     assert ans2 and "cos" in ans2.lower(), ans2
     ans3 = try_solve_math("solve x**2 - 1 = 0 for x")
     assert ans3 and ("-1" in ans3 and "1" in ans3), ans3
+    ans4 = try_solve_math("eigenvalues of [[1,2],[2,1]]")
+    assert ans4 and ("-1" in ans4 and "3" in ans4), ans4
 
 
 def test_research_math_abstains() -> None:

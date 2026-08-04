@@ -11,7 +11,7 @@ No invented proofs or numeric guesses.
 from __future__ import annotations
 
 import re
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 # Keep legacy integer path available even if sympy missing
 _LEGACY_OK = True
@@ -190,13 +190,7 @@ def looks_like_research_math(text: str) -> bool:
 def _legacy_eval(text: str) -> Optional[str]:
     """Original integer-safe path (no sympy required)."""
     t = (text or "").lower()
-    pct = re.search(r"what\s+is\s+(\d+)\s*(?:%|percent|pct)\s*of\s+(\d+)", t)
-    if not pct:
-        pct = re.search(r"(\d+)\s*(?:%|percent|pct)\s*of\s+(\d+)", t)
-    if pct:
-        a, b = int(pct.group(1)), int(pct.group(2))
-        return f"{a}% of {b} equals {(a * b) // 100}."
-    # compound: percent then add
+    # compound first (before bare percent steals the match)
     pct_add = re.search(
         r"what\s+is\s+(\d+)\s*(?:%|percent)\s*of\s+(\d+)\s*,?\s*then\s+add\s+(\d+)",
         t,
@@ -205,6 +199,24 @@ def _legacy_eval(text: str) -> Optional[str]:
         a, b, c = int(pct_add.group(1)), int(pct_add.group(2)), int(pct_add.group(3))
         part = (a * b) // 100
         return f"{a}% of {b} is {part}; plus {c} equals {part + c}."
+    # sum 1..n
+    sumn = re.search(
+        r"(?:sum|add)\s+(?:from\s+)?(?:k\s*=\s*)?1\s*(?:to|through|\.\.)\s*(\d+)",
+        t,
+    )
+    if not sumn:
+        sumn = re.search(r"sum\s+(?:of\s+)?(?:the\s+)?(?:numbers?\s+)?1\s*(?:to|through)\s*(\d+)", t)
+    if sumn:
+        n = int(sumn.group(1))
+        if 1 <= n <= 1_000_000:
+            total = n * (n + 1) // 2
+            return f"Sum from 1 to {n} equals {total}."
+    pct = re.search(r"what\s+is\s+(\d+)\s*(?:%|percent|pct)\s*of\s+(\d+)", t)
+    if not pct:
+        pct = re.search(r"(\d+)\s*(?:%|percent|pct)\s*of\s+(\d+)", t)
+    if pct:
+        a, b = int(pct.group(1)), int(pct.group(2))
+        return f"{a}% of {b} equals {(a * b) // 100}."
     sq = re.search(r"(?:what\s+is\s+)?(?:the\s+)?square\s+of\s+(\d+)", t)
     if sq:
         n = int(sq.group(1))
@@ -281,6 +293,7 @@ def _sympy_locals():
         "Matrix": sp.Matrix,
         "det": sp.det,
         "Eq": sp.Eq,
+        "summation": sp.summation,
     }
 
 
@@ -337,9 +350,23 @@ def _extract_expr_blob(text: str) -> Optional[str]:
         return f"solve({eq_raw}, {var})"
 
     # determinant / matrix
-    m = re.search(r"determinant of\s*\[(.+)\]", low)
+    m = re.search(r"determinant of\s*(\[\[.+?\]\])", low)
     if m:
-        return f"det(Matrix([[{m.group(1)}]]))"
+        return f"det(Matrix({m.group(1)}))"
+
+    # eigenvalues of [[a,b],[c,d]]
+    m = re.search(r"eigenvalues?\s+of\s*(\[\[.+?\]\])", low)
+    if m:
+        return f"Matrix({m.group(1)}).eigenvals()"
+
+    # summation: sum k=1 to n of k**2
+    m = re.search(
+        r"sum(?:mation)?\s+([a-z])\s*=\s*(\d+)\s+to\s+(\d+)\s+of\s+(.+)$",
+        low,
+    )
+    if m:
+        var, a, b, expr = m.group(1), m.group(2), m.group(3), m.group(4).strip(" .?")
+        return f"summation({expr}, ({var}, {a}, {b}))"
 
     # evaluate / compute / what is <expr>
     m = re.search(
@@ -399,8 +426,85 @@ def _eval_sympy(blob: str) -> Optional[str]:
         return None
 
 
-def try_solve_math(text: str) -> Optional[str]:
-    """Return a verified math answer string, or None if not checkable."""
+def _try_multihop(text: str) -> Optional[str]:
+    """Verified multi-hop: split on 'then' and chain numeric CAS steps."""
+    raw = (text or "").strip()
+    if not re.search(r"\bthen\b", raw, re.I):
+        return None
+    # Dedicated percent-then-add (legacy) — only when pattern matches whole ask
+    pct_add = _legacy_eval(raw)
+    if pct_add and "plus" in pct_add and "%" in pct_add:
+        return pct_add
+    parts = re.split(r"\s*,?\s*\bthen\b\s+", raw, flags=re.I)
+    if len(parts) < 2 or len(parts) > 4:
+        return None
+    notes: List[str] = []
+    carry: Optional[str] = None
+    for i, part in enumerate(parts):
+        piece = part.strip(" .?")
+        if i == 0:
+            step = try_solve_math_once(piece)
+            if not step:
+                return None
+            nums = re.findall(r"-?\d+(?:\.\d+)?", step)
+            # Prefer last meaningful number (result)
+            carry = nums[-1] if nums else None
+            if carry is None:
+                return None
+            notes.append(step.rstrip("."))
+            continue
+        if carry is None:
+            return None
+        m = re.match(
+            r"(add|plus|subtract|minus|multiply by|times|divide by)\s+(-?\d+(?:\.\d+)?)$",
+            piece,
+            re.I,
+        )
+        if not m:
+            return None
+        op, val = m.group(1).lower(), m.group(2)
+        blob = {
+            "add": f"({carry})+({val})",
+            "plus": f"({carry})+({val})",
+            "subtract": f"({carry})-({val})",
+            "minus": f"({carry})-({val})",
+            "multiply by": f"({carry})*({val})",
+            "times": f"({carry})*({val})",
+            "divide by": f"({carry})/({val})",
+        }[op]
+        out = _eval_sympy(blob) if _HAS_SYMPY else None
+        if out is None:
+            try:
+                a_f, b_f = float(carry), float(val)
+                if op in ("add", "plus"):
+                    out = str(a_f + b_f)
+                elif op in ("subtract", "minus"):
+                    out = str(a_f - b_f)
+                elif op in ("multiply by", "times"):
+                    out = str(a_f * b_f)
+                elif op == "divide by":
+                    if b_f == 0:
+                        return None
+                    out = str(a_f / b_f)
+            except Exception:
+                return None
+        if out is None:
+            return None
+        # Prefer clean ints
+        try:
+            if float(out) == int(float(out)):
+                out = str(int(float(out)))
+        except Exception:
+            pass
+        notes.append(f"{op} {val} -> {out}")
+        carry = out
+    if carry is None:
+        return None
+    return "Verified multi-hop: " + "; ".join(notes) + f" => {carry}."
+
+
+def try_solve_math_once(text: str) -> Optional[str]:
+    """Single-hop solve (no multi-hop recursion)."""
     legacy = _legacy_eval(text)
     if legacy:
         return legacy
@@ -409,13 +513,30 @@ def try_solve_math(text: str) -> Optional[str]:
     blob = _extract_expr_blob(text)
     if not blob:
         return None
+    # Method calls like Matrix(...).eigenvals() need direct eval
+    if ".eigenvals()" in blob and _HAS_SYMPY:
+        try:
+            m = re.search(r"Matrix\((\[\[.+?\]\])\)\.eigenvals\(\)", blob)
+            if m:
+                mat = sp.Matrix(sp.sympify(m.group(1)))
+                return f"Verified (symbolic): {mat.eigenvals()}."
+        except Exception:
+            return None
     out = _eval_sympy(blob)
     if out is None:
         return None
-    # Natural phrasing for simple numeric
     if re.fullmatch(r"-?\d+(\.\d+)?", out.replace(" ", "")):
         return f"Verified result: {out}."
     return f"Verified (symbolic): {out}."
+
+
+def try_solve_math(text: str) -> Optional[str]:
+    """Return a verified math answer string, or None if not checkable."""
+    if re.search(r"\bthen\b", text or "", re.I):
+        hop = _try_multihop(text)
+        if hop:
+            return hop
+    return try_solve_math_once(text)
 
 
 def math_policy(text: str) -> Tuple[str, Optional[str]]:
