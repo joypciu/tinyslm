@@ -13,7 +13,7 @@ from tiny_slm.contracts import (
     contract_search,
     contract_swarm,
 )
-from tiny_slm.search import clean_search_query, needs_search, search_web
+from tiny_slm.search import clean_search_query, needs_search, repair_search_query, search_web
 from tiny_slm.swarm import looks_complex_query, run_swarm
 
 
@@ -128,6 +128,19 @@ def run_agent_tools(
             q = clean_search_query(goal)
             digest = search_web(q, max_results=5)
             cr = contract_search(goal, digest)
+            # Contract Repair: one rewritten query if first pass fails quorum
+            if not cr.ok:
+                q2 = repair_search_query(goal, failed_query=q)
+                if q2.lower() != q.lower():
+                    digest2 = search_web(q2, max_results=5)
+                    cr2 = contract_search(goal, digest2)
+                    if cr2.ok:
+                        cr2.proof = f"repaired:{q2[:60]}|{cr2.proof}"
+                        cr = cr2
+                        digest = digest2
+                        q = q2
+                    else:
+                        blocks.append(f"[contract:search:repair-fail] q={q2[:80]}")
             state.contracts.append(cr)
             blocks.append(cr.line())
             if cr.ok:

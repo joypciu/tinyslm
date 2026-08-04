@@ -40,6 +40,55 @@ def clean_search_query(user_message: str) -> str:
     return q or (user_message or "").strip()
 
 
+def repair_search_query(user_message: str, failed_query: str = "") -> str:
+    """One-shot Contract Repair: sharpen a query after evidence quorum fails.
+
+    Novel for this stack: failed search contracts trigger a deterministic
+    rewrite (drop fluff, promote nouns, add release/news anchors) rather than
+    inventing an answer from a weak digest.
+    """
+    base = clean_search_query(user_message)
+    failed = (failed_query or "").strip()
+    q = base
+    # Drop meta verbs that dilute retrieval
+    q = re.sub(
+        r"\b(summarize|summary|in one sentence|tell me about|information about)\b",
+        " ",
+        q,
+        flags=re.I,
+    )
+    q = re.sub(r"\s+", " ", q).strip(" ?!.")
+    low = q.lower()
+    # Promote release/news anchors when the ask is "latest"
+    if re.search(r"\b(latest|current|new|recent)\b", low):
+        if "python" in low and "release" not in low:
+            q = "Python latest release notes"
+        elif "release" not in low and "news" not in low:
+            q = f"{q} latest news"
+    # If repair equals the failed query, try noun-only compression
+    if q.lower() == failed.lower() or not q:
+        tokens = [
+            t
+            for t in re.findall(r"[A-Za-z][A-Za-z0-9.+_-]{2,}", base)
+            if t.lower()
+            not in {
+                "the",
+                "and",
+                "for",
+                "with",
+                "from",
+                "about",
+                "search",
+                "web",
+                "please",
+                "summarize",
+                "sentence",
+            }
+        ]
+        q = " ".join(tokens[:8]) or base
+    return q or base
+
+
 @dataclass
 class SearchHit:
     title: str

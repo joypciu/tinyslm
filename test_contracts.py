@@ -18,6 +18,18 @@ def test_search_contract_quorum() -> None:
     assert "Sources:" in cr.artifact
 
 
+def test_repair_search_query() -> None:
+    from tiny_slm.search import repair_search_query
+
+    q = repair_search_query(
+        "Search the web for the latest Python release news and summarize in one sentence.",
+        failed_query="latest Python release news and summarize in one sentence",
+    )
+    assert "python" in q.lower()
+    assert "summarize" not in q.lower()
+    assert "release" in q.lower() or "news" in q.lower()
+
+
 def test_host_diversity() -> None:
     from tiny_slm.search import citation_hosts, host_diversity_ok
     from tiny_slm.tvs import evidence_quorum
@@ -72,6 +84,7 @@ def test_agent_tools_contract_lines() -> None:
 def main() -> None:
     tests = [
         test_search_contract_quorum,
+        test_repair_search_query,
         test_host_diversity,
         test_memory_contract,
         test_best_answer_prefers_search,
