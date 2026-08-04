@@ -45,7 +45,7 @@ _MATH_CUES = re.compile(
     r"probability|bayes|expectation|variance|binomial|"
     r"modulo|\bgcd\b|\blcm\b|combinator|permutation|"
     r"\blog\b|\bln\b|\bsin\b|\bcos\b|\btan\b|sqrt|factorial|"
-    r"taylor|maclaurin|series expansion|"
+    r"taylor|maclaurin|series expansion|dot product|cross product|\bnorm of\b|"
     r"percent|squared|power of|calculus|algebra|linear algebra"
     r")\b|"
     r"[√∫∑∏∂∇]|\\frac|\\int|\\sum|"
@@ -418,6 +418,23 @@ def _extract_expr_blob(text: str) -> Optional[str]:
     if m:
         return f"__trace__{m.group(1)}"
 
+    # vector ops: dot / cross / norm
+    m = re.search(
+        r"dot\s+product\s+of\s*\[([^\]]+)\]\s*(?:and|with)\s*\[([^\]]+)\]",
+        low,
+    )
+    if m:
+        return f"__dot__[{m.group(1)}][{m.group(2)}]"
+    m = re.search(
+        r"cross\s+product\s+of\s*\[([^\]]+)\]\s*(?:and|with)\s*\[([^\]]+)\]",
+        low,
+    )
+    if m:
+        return f"__cross__[{m.group(1)}][{m.group(2)}]"
+    m = re.search(r"(?:l2\s+)?norm\s+of\s*\[([^\]]+)\]", low)
+    if m:
+        return f"__norm__[{m.group(1)}]"
+
     # taylor / maclaurin: "taylor series of sin(x) around 0 order 5"
     m = re.search(
         r"(?:taylor|maclaurin)\s+(?:series\s+)?(?:expand\s+|of\s+)(.+?)"
@@ -679,6 +696,38 @@ def try_solve_math_once(text: str) -> Optional[str]:
             if mat.rows > 6 or mat.cols > 6:
                 return None
             return f"Verified result: trace = {mat.trace()}."
+        except Exception:
+            return None
+    if blob.startswith("__dot__") and _HAS_SYMPY:
+        try:
+            m = re.match(r"__dot__\[(.+)\]\[(.+)\]$", blob)
+            if m:
+                a = sp.Matrix([sp.sympify(x.strip()) for x in m.group(1).split(",")])
+                b = sp.Matrix([sp.sympify(x.strip()) for x in m.group(2).split(",")])
+                if a.shape != b.shape or a.rows > 8:
+                    return None
+                return f"Verified result: dot product = {a.dot(b)}."
+        except Exception:
+            return None
+    if blob.startswith("__cross__") and _HAS_SYMPY:
+        try:
+            m = re.match(r"__cross__\[(.+)\]\[(.+)\]$", blob)
+            if m:
+                a = sp.Matrix([sp.sympify(x.strip()) for x in m.group(1).split(",")])
+                b = sp.Matrix([sp.sympify(x.strip()) for x in m.group(2).split(",")])
+                if a.rows != 3 or b.rows != 3:
+                    return None
+                return f"Verified (symbolic): cross product = {a.cross(b)}."
+        except Exception:
+            return None
+    if blob.startswith("__norm__") and _HAS_SYMPY:
+        try:
+            m = re.match(r"__norm__\[(.+)\]$", blob)
+            if m:
+                a = sp.Matrix([sp.sympify(x.strip()) for x in m.group(1).split(",")])
+                if a.rows > 8:
+                    return None
+                return f"Verified result: L2 norm = {a.norm()}."
         except Exception:
             return None
     if blob.startswith("__gcd__"):

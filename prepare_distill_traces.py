@@ -33,6 +33,13 @@ REHEARSAL = r"""
 <bos><user>Write a Python function that adds two numbers.<eos>
 <assistant>def add(a, b):
     return a + b<eos>
+<bos><user>How do I reverse a string in Python?<eos>
+<assistant>s = 'hello'
+reversed_s = s[::-1]  # 'olleh'<eos>
+<bos><user>Bayes: P(B|A)=0.9, P(A)=0.01, P(B)=0.1, what is P(A|B)?<eos>
+<assistant>Verified Bayes: P(A|B) = P(B|A)P(A)/P(B) = (0.9*0.01)/0.1 = 0.09.<eos>
+<bos><user>10 choose 2<eos>
+<assistant>Verified result: C(10, 2) = 45.<eos>
 <bos><user>Plan a short study session step by step.<eos>
 <assistant>1) Pick one topic. 2) Study for 20 focused minutes. 3) Write 3 notes. 4) Take a short break.<eos>
 <bos><user>Using memory, what is the launch code?<eos>

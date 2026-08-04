@@ -39,6 +39,8 @@ def test_basic_and_symbolic_math() -> None:
     ans10 = try_solve_math("inverse of [[1,2],[3,4]]")
     assert ans10 and ("-2" in ans10 or "Matrix" in ans10), ans10
     assert "5" in (try_solve_math("trace of [[1,2],[3,4]]") or "")
+    assert "= 12" in (try_solve_math("dot product of [1, 2, 3] and [4, 1, 2]") or "")
+    assert "= 5" in (try_solve_math("norm of [3, 4]") or "")
     action_pde, _ = math_policy("Solve the Navier-Stokes PDE for my thesis.")
     assert action_pde == "abstain"
 
