@@ -239,6 +239,18 @@ def _legacy_eval(text: str) -> Optional[str]:
     bayes = _try_bayes(text)
     if bayes:
         return bayes
+    # modulo / remainder
+    mod = re.search(
+        r"(?:what\s+is\s+)?(\d+)\s*(?:mod|modulo|%\s*|modded by)\s*(\d+)",
+        t,
+    )
+    if not mod:
+        mod = re.search(r"remainder\s+(?:of\s+)?(\d+)\s+(?:divided by|/)\s*(\d+)", t)
+    if mod:
+        a, b = int(mod.group(1)), int(mod.group(2))
+        if b == 0:
+            return "Division by zero is undefined."
+        return f"Verified result: {a} mod {b} = {a % b}."
     # mean / variance of a small numeric list
     mstat = re.search(
         r"(mean|average|variance)\s+of\s*\[([^\]]+)\]",

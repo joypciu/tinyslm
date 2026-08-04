@@ -256,6 +256,17 @@ _FAQ: List[Tuple[List[str], str]] = [
         "Debugging means finding and fixing mistakes: read the error, reproduce it, change one thing, and retest.",
     ),
     (
+        [
+            "infinite while loop",
+            "loop never stops",
+            "debug an infinite while",
+            "while loop never stops",
+        ],
+        "An infinite while usually means the loop condition never becomes false. "
+        "Print the condition variables each iteration, add a break, or change the "
+        "variable the while checks so progress is made toward exit.",
+    ),
+    (
         ["what is a boolean", "what's a boolean", "boolean in programming"],
         "A boolean is True or False - used for yes/no decisions in if statements and loops.",
     ),
