@@ -440,6 +440,26 @@ def _extract_expr_blob(text: str) -> Optional[str]:
             return f"solve(Eq({left}, {right}), {var})"
         return f"solve({eq_raw}, {var})"
 
+    # linear system: solve x+y=5, x-y=1 for x,y
+    m = re.search(
+        r"solve\s+(.+?)\s+for\s+([a-z](?:\s*,\s*[a-z])+)\s*$",
+        t,
+        re.I,
+    )
+    if m:
+        eqs_raw = m.group(1).strip(" .?")
+        vars_ = [v.strip() for v in m.group(2).split(",") if v.strip()]
+        if 2 <= len(vars_) <= 3:
+            parts = [p.strip() for p in re.split(r"\s*;\s*|\s*,\s*(?=[^=]+=)", eqs_raw) if p.strip()]
+            if len(parts) >= 2:
+                eq_bits = []
+                for p in parts[:4]:
+                    if "=" in p:
+                        left, right = p.split("=", 1)
+                        eq_bits.append(f"Eq({left.strip()}, {right.strip()})")
+                if len(eq_bits) >= 2:
+                    return f"__linsys__[{';'.join(eq_bits)}][{','.join(vars_)}]"
+
     # determinant / matrix
     m = re.search(r"determinant of\s*(\[\[.+?\]\])", low)
     if m:
@@ -809,6 +829,30 @@ def try_solve_math_once(text: str) -> Optional[str]:
                 if a.rows > 8:
                     return None
                 return f"Verified result: L2 norm = {a.norm()}."
+        except Exception:
+            return None
+    if blob.startswith("__linsys__") and _HAS_SYMPY:
+        try:
+            m = re.match(r"__linsys__\[(.+)\]\[(.+)\]$", blob)
+            if m:
+                eq_bits = m.group(1).split(";")
+                vars_ = [v.strip() for v in m.group(2).split(",") if v.strip()]
+                local_dict = _sympy_locals()
+                eqs = []
+                for bit in eq_bits:
+                    eqs.append(
+                        parse_expr(
+                            bit,
+                            local_dict=local_dict,
+                            transformations=_TRANSFORMS,
+                            evaluate=True,
+                        )
+                    )
+                syms = [sp.Symbol(v) for v in vars_]
+                sol = sp.solve(eqs, syms, dict=True)
+                if not sol:
+                    return None
+                return f"Verified (symbolic): {sol}."
         except Exception:
             return None
     if blob.startswith("__defint__") and _HAS_SYMPY:

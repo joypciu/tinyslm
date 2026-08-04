@@ -51,6 +51,8 @@ def test_basic_and_symbolic_math() -> None:
     assert ans12 and ("2" in ans12) and ("Matrix" in ans12 or "[" in ans12), ans12
     ans13 = try_solve_math("integrate x**2 from 0 to 1")
     assert ans13 and ("1/3" in ans13.replace(" ", "") or "0.333" in ans13), ans13
+    ans14 = try_solve_math("solve x+y=5, x-y=1 for x,y")
+    assert ans14 and ("3" in ans14) and ("2" in ans14), ans14
     action_pde, _ = math_policy("Solve the Navier-Stokes PDE for my thesis.")
     assert action_pde == "abstain"
 
